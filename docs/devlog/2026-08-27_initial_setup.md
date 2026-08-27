@@ -51,3 +51,16 @@ Visual Studioのインストールを求めるのは本末転倒なので、Node
 - `db.transaction()` → 手書きの `inTransaction()`（BEGIN/COMMIT/ROLLBACK）
 - `db.backup()` → `VACUUM INTO`（稼働中でも一貫したスナップショット）
 - 全機能（フォロワー入力・投稿・チャット画像保存・バックアップ）を再テスト済み
+
+## 追記2: スクショ自動収集（証拠素材パイプライン）
+
+報告投稿・note素材のためのスクショ収集を3点セットで実装（本人の依頼で確認の上追加）。
+
+1. CLIMB自画面キャプチャ: `POST /api/capture` が playwright-core + インストール済みChrome/Edgeで
+   全7画面をヘッドレス撮影し `source=CLIMB` のAssetとして登録（Settings画面のボタンから実行）
+2. 取り込みフォルダ: `data/inbox/` に置いた画像をDashboard表示時とSettingsのスキャンボタンで
+   自動Asset登録。サブフォルダ x / analytics / climb でsource分類、直下はOTHER
+3. Windowsホットキースクリプト: `scripts/capture-screen.bat`（PowerShell、依存なし）で
+   全画面PNGをinboxへ保存。ショートカットキー割り当て手順は scripts/README.md
+
+Drive接続後は、これらのAssetも既存のupload_status機構でそのままGoogle Driveへ同期される。

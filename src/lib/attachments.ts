@@ -10,17 +10,94 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/webp": "webp",
 };
 
+export const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
 export const SUPPORTED_IMAGE_MIMES = Object.keys(EXT_BY_MIME);
+
+export type AssetSource =
+  | "AI_CHAT"
+  | "X_SCREENSHOT"
+  | "ANALYTICS"
+  | "CLIMB"
+  | "OTHER";
 
 export type SavedAsset = {
   id: number;
   stored_filename: string;
+  local_path: string;
   upload_status: string;
 };
 
-// Save one chat image: local file is the original, DB row is created immediately.
-// Drive upload happens later in the background and must never block chat.
-// Filename: YYYY-MM-DD_HHmmss_chat_<conversation id>_img_<sequence>.<ext>
+const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+
+export function timestampParts(now = new Date()) {
+  return {
+    datePart: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    timePart: `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`,
+    dirParts: [String(now.getFullYear()), pad(now.getMonth() + 1), pad(now.getDate())],
+  };
+}
+
+// Save one file as an asset: local original under data/uploads/YYYY/MM/DD + DB row.
+// The local copy is the source of truth; a Drive upload happens later in the
+// background and must never block or lose it.
+export function saveAssetFile(opts: {
+  buffer: Buffer;
+  source: AssetSource;
+  originalFilename: string;
+  mimeType: string;
+  storedFilename: string;
+}): SavedAsset {
+  const ts = timestampParts();
+  const dir = path.join(UPLOADS_DIR, ...ts.dirParts);
+  fs.mkdirSync(dir, { recursive: true });
+
+  let localPath = path.join(dir, opts.storedFilename);
+  if (fs.existsSync(localPath)) {
+    const ext = path.extname(opts.storedFilename);
+    const base = path.basename(opts.storedFilename, ext);
+    let i = 2;
+    while (fs.existsSync(localPath)) {
+      localPath = path.join(dir, `${base}_${i}${ext}`);
+      i++;
+    }
+  }
+  fs.writeFileSync(localPath, opts.buffer);
+
+  const sha256 = crypto.createHash("sha256").update(opts.buffer).digest("hex");
+  const storedFilename = path.basename(localPath);
+
+  const { lastInsertRowid } = getDb()
+    .prepare(
+      `INSERT INTO assets
+         (source, original_filename, stored_filename, mime_type, file_size, sha256, local_path, upload_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'LOCAL_SAVED')`,
+    )
+    .run(
+      opts.source,
+      opts.originalFilename,
+      storedFilename,
+      opts.mimeType,
+      opts.buffer.length,
+      sha256,
+      localPath,
+    );
+
+  return {
+    id: Number(lastInsertRowid),
+    stored_filename: storedFilename,
+    local_path: localPath,
+    upload_status: "LOCAL_SAVED",
+  };
+}
+
+// Chat image: YYYY-MM-DD_HHmmss_chat_<conversation id>_img_<sequence>.<ext>
 export function saveChatImage(
   conversationId: number,
   messageId: number,
@@ -32,39 +109,24 @@ export function saveChatImage(
   const ext = EXT_BY_MIME[mimeType];
   if (!ext) throw new Error(`unsupported image type: ${mimeType}`);
 
-  const now = new Date();
-  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
-  const datePart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  const storedFilename = `${datePart}_${timePart}_chat_${pad(conversationId, 6)}_img_${pad(sequence)}.${ext}`;
+  const ts = timestampParts();
+  const storedFilename = `${ts.datePart}_${ts.timePart}_chat_${pad(conversationId, 6)}_img_${pad(sequence)}.${ext}`;
 
-  const dir = path.join(
-    UPLOADS_DIR,
-    String(now.getFullYear()),
-    pad(now.getMonth() + 1),
-    pad(now.getDate()),
-  );
-  fs.mkdirSync(dir, { recursive: true });
-  const localPath = path.join(dir, storedFilename);
-  fs.writeFileSync(localPath, buffer);
+  const saved = saveAssetFile({
+    buffer,
+    source: "AI_CHAT",
+    originalFilename,
+    mimeType,
+    storedFilename,
+  });
 
-  const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
-
-  const db = getDb();
-  const { lastInsertRowid } = db
+  getDb()
     .prepare(
-      `INSERT INTO assets
-         (source, original_filename, stored_filename, mime_type, file_size, sha256, local_path, upload_status)
-       VALUES ('AI_CHAT', ?, ?, ?, ?, ?, ?, 'LOCAL_SAVED')`,
+      "INSERT INTO message_attachments (message_id, asset_id) VALUES (?, ?)",
     )
-    .run(originalFilename, storedFilename, mimeType, buffer.length, sha256, localPath);
-  const assetId = Number(lastInsertRowid);
+    .run(messageId, saved.id);
 
-  db.prepare(
-    "INSERT INTO message_attachments (message_id, asset_id) VALUES (?, ?)",
-  ).run(messageId, assetId);
-
-  return { id: assetId, stored_filename: storedFilename, upload_status: "LOCAL_SAVED" };
+  return saved;
 }
 
 export type AssetRow = {

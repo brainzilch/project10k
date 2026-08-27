@@ -1,8 +1,15 @@
 import { getDb, getMeta } from "@/lib/db";
+import { ingestInbox } from "@/lib/inbox";
 
 export const dynamic = "force-dynamic";
 
 export default function Dashboard() {
+  // auto-register any screenshots dropped into data/inbox since last visit
+  try {
+    ingestInbox();
+  } catch {
+    // inbox ingest must never break the dashboard
+  }
   const meta = getMeta();
   const start = Number(meta.start_followers);
   const goal = Number(meta.goal_followers);
