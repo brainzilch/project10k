@@ -10,13 +10,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
-    "better-sqlite3": "^13.0.3",
     "next": "^15.5.24",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",

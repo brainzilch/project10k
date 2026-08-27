@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, inTransaction } from "@/lib/db";
 
 export async function GET() {
   const rows = getDb()
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
-  const postId = db.transaction(() => {
+  const postId = inTransaction(() => {
     const { lastInsertRowid } = db
       .prepare("INSERT INTO posts (post_type, raw_text) VALUES (?, ?)")
       .run(postType, rawText);
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       link.run(lastInsertRowid, tag.id);
     }
     return Number(lastInsertRowid);
-  })();
+  });
 
   return NextResponse.json({ id: postId });
 }

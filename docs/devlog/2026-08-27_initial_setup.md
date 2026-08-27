@@ -40,3 +40,14 @@ Phase 2（Compose・RAW保存・AI診断）とDay 2優先項目の一部（AI Ch
 2. PROJECT_10Kフォルダ構成の作成・接続テスト（Connect Google Drive / Test Upload）
 3. チャット画像のバックグラウンドDriveアップロード（Claude処理と非同期）+ 起動時のPENDING/FAILED再送
 4. Chat UIのDrive同期バッジは実装済み（現在は常にLocal ✓）— Drive実装後にそのまま機能する
+
+## 追記: better-sqlite3 → node:sqlite への移行
+
+Windows環境（Node 24）で `npm install` が失敗した。better-sqlite3のビルド済みバイナリが
+Node 24用に存在せず、node-gypがVisual Studioを要求したため。
+Visual Studioのインストールを求めるのは本末転倒なので、Node.js内蔵の `node:sqlite`
+（Node 22.5+）へ移行し、ネイティブ依存を完全に排除した。
+
+- `db.transaction()` → 手書きの `inTransaction()`（BEGIN/COMMIT/ROLLBACK）
+- `db.backup()` → `VACUUM INTO`（稼働中でも一貫したスナップショット）
+- 全機能（フォロワー入力・投稿・チャット画像保存・バックアップ）を再テスト済み
