@@ -1,14 +1,17 @@
 import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
+import { retryPendingUploads } from "@/lib/drive";
 
 export const dynamic = "force-dynamic";
 
 export default function Dashboard() {
-  // auto-register any screenshots dropped into data/inbox since last visit
+  // auto-register any screenshots dropped into data/inbox since last visit,
+  // and re-send assets whose Drive upload is pending or failed (spec section 6)
   try {
     ingestInbox();
+    retryPendingUploads();
   } catch {
-    // inbox ingest must never break the dashboard
+    // housekeeping must never break the dashboard
   }
   const meta = getMeta();
   const start = Number(meta.start_followers);

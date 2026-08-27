@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, UPLOADS_DIR } from "./db";
+import { queueDriveUpload } from "./drive";
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/png": "png",
@@ -89,8 +90,11 @@ export function saveAssetFile(opts: {
       localPath,
     );
 
+  const assetId = Number(lastInsertRowid);
+  // background Drive copy (no-op until Drive is connected); never blocks
+  queueDriveUpload(assetId);
   return {
-    id: Number(lastInsertRowid),
+    id: assetId,
     stored_filename: storedFilename,
     local_path: localPath,
     upload_status: "LOCAL_SAVED",

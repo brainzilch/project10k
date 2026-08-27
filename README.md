@@ -81,15 +81,23 @@ Railway の例: GitHubリポジトリを接続 → Volume を `/data` に追加 
 2. `.env.local` の `ANTHROPIC_API_KEY` に設定して再起動
 3. Settings画面で「API Key: set」になっていることを確認
 
-## Google API設定（Drive連携・Day 2実装予定）
+## Google API設定（Drive自動保存）
 
-1. Google Cloud Console でプロジェクト作成 → Drive API 有効化
-2. OAuth 2.0 クライアントID（デスクトップ/Webアプリ）を作成
-3. `.env.local` に `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を設定
-4. Settings → Connect Google Drive でユーザー本人のGoogleアカウントを認証（サービスアカウントは使わない）
-5. My Drive に `PROJECT_10K/` フォルダ構成が作成され、AI Chatに送った画像が自動保存される
+1. https://console.cloud.google.com でプロジェクトを作成（例: `climb-project10k`）
+2. 「APIとサービス」→「ライブラリ」→ **Google Drive API** を検索して有効化
+3. 「APIとサービス」→「OAuth同意画面」→ External で作成 → テストユーザーに自分のGmailを追加
+4. 「認証情報」→「認証情報を作成」→ **OAuthクライアントID** → 種類は「ウェブアプリケーション」
+   - 承認済みのリダイレクトURI に本番URLを追加:
+     `https://<あなたのドメイン>/api/drive/oauth/callback`
+     （例: `https://project10k-production.up.railway.app/api/drive/oauth/callback`）
+5. 発行された client ID / client secret を環境変数に設定（Railwayなら Variables、ローカルなら `.env.local`）:
+   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（`GOOGLE_REDIRECT_URI` は省略可 — アクセス中のURLから自動導出される）
+6. CLIMB の Settings → **Connect Google Drive** で本人のGoogleアカウントを認証（サービスアカウントは使わない）
+7. 認証完了と同時に My Drive に `PROJECT_10K/` フォルダ構成が自動作成される → **Test Upload** で確認
 
-画像はまずローカル（`data/uploads/YYYY/MM/DD/`）に保存され、Driveはクラウドコピー。Drive障害時も画像は失われず、`DRIVE_PENDING` / `DRIVE_FAILED` のものは再送される。
+接続後は、AI Chatに送った画像・アップロードした画像・CLIMB自画面キャプチャがすべて自動でDriveへ保存される（AI_CHAT→`AI_CHAT/images`、Xスクショ→`X/screenshots` など source 別に振り分け）。
+
+画像はまずローカル（`data/uploads/YYYY/MM/DD/`）に保存され、Driveはクラウドコピー。DriveのアップロードはClaude APIと非同期で、Drive障害時も画像は失われない。`DRIVE_PENDING` / `DRIVE_FAILED` はDashboardを開いた時とSettings「未同期を再送」で自動再送される。認可トークンは `data/drive-token.json`（gitignore領域）に保存され、DBにもGitにも入らない。
 
 ## DB場所とデータ構造
 
@@ -104,7 +112,11 @@ data/
 
 ## Backup方法
 
-Settings → **Backup Now** で `data/exports/climb-YYYYMMDD-HHmmss.db` にスナップショットを作成（SQLite online backup使用・稼働中でも安全）。`data/` ディレクトリごと別ドライブ等にコピーすれば完全バックアップになる。
+Settings の Database 欄に3種類ある（すべて稼働中でも安全な `VACUUM INTO` スナップショット）。
+
+- **Backup Now**: サーバー内 `data/exports/` にコピーを作成
+- **バックアップをダウンロード**: スナップショットをブラウザで端末へダウンロード（オフサイトコピー。週1回推奨）
+- **DBバックアップをDriveへ**（Drive接続後）: `PROJECT_10K/CLIMB/exports/` へ保存
 
 ## 開発ログ
 

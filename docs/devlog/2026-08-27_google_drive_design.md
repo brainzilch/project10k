@@ -43,3 +43,21 @@ v0.1では `PROJECT_10K/AI_CHAT/images/` への保存が必須。他は作成の
 - ローカルが原本。Driveはクラウドコピー。Drive障害で画像を失わない
 - 同一sha256でも自動削除しない（Assetは共有可能だがAttachment関係は会話ごとに別）
 - ファイル名 `YYYY-MM-DD_HHmmss_chat_<conversation id>_img_<sequence>.<ext>` で衝突回避、元ファイル名はDB保存
+
+## 実装完了（Day 1中に前倒し）
+
+設計通りに実装した。追加の実装判断:
+
+- googleapis SDKは使わず、fetchによる生REST（token refresh / files list・create /
+  multipart upload）で実装。依存ゼロを維持
+- スコープは `drive.file`（このアプリが作成したファイルのみアクセス可）で最小化
+- Drive自動アップロードの起点は `saveAssetFile`（全Asset保存の関門）。接続前はno-op
+- 再送は Dashboard 表示時 + Settings「未同期を再送」。同時実行ガード付き・最大50件/回
+- OAuth state はCSRF対策としてcookie検証。redirect URIはアクセス中のoriginから自動導出
+  （GOOGLE_REDIRECT_URI で明示上書きも可）
+- オフサイトバックアップ: 「バックアップをダウンロード」（ブラウザDL）と
+  「DBバックアップをDriveへ」（CLIMB/exports）を追加し、クラウド移行で生じた
+  単一障害点（Railwayボリューム）を解消
+
+ローカル検証済み: バックアップDLのDB整合性、未接続時の全エンドポイントの安全動作、
+OAuth リダイレクトURL生成。Google API 実通信は本番でOAuth接続後に Test Upload で確認する。

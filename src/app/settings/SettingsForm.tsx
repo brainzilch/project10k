@@ -44,10 +44,18 @@ export function BackupButton() {
 
   return (
     <div>
-      <button onClick={backup} disabled={busy}>
-        {busy ? "Backing up..." : "Backup Now"}
-      </button>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={backup} disabled={busy}>
+          {busy ? "Backing up..." : "Backup Now"}
+        </button>
+        <a href="/api/backup/download">
+          <button className="secondary">バックアップをダウンロード</button>
+        </a>
+      </div>
       {result && <p className="muted">{result}</p>}
+      <p className="muted" style={{ marginBottom: 0 }}>
+        「ダウンロード」はDBのスナップショットを端末に保存する（サーバー障害に備えたオフサイトコピー）。
+      </p>
     </div>
   );
 }

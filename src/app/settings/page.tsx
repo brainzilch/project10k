@@ -1,8 +1,10 @@
 import { DB_PATH, getDb, getSetting } from "@/lib/db";
 import { DEFAULT_MODEL } from "@/lib/anthropic";
 import { INBOX_DIR } from "@/lib/inbox";
+import { driveConfigured, driveConnected } from "@/lib/drive";
 import { BackupButton, ModelForm } from "./SettingsForm";
 import CaptureTools from "./CaptureTools";
+import DriveTools from "./DriveTools";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,16 @@ export default function SettingsPage() {
     process.env.CLIMB_CLAUDE_MODEL || DEFAULT_MODEL,
   );
   const driveFolder = getSetting("drive_folder_id", "");
+  const statusCounts = getDb()
+    .prepare(
+      `SELECT upload_status, COUNT(*) AS n FROM assets
+       WHERE upload_status IN ('DRIVE_PENDING', 'DRIVE_FAILED') GROUP BY upload_status`,
+    )
+    .all() as { upload_status: string; n: number }[];
+  const pendingCount =
+    statusCounts.find((s) => s.upload_status === "DRIVE_PENDING")?.n ?? 0;
+  const failedCount =
+    statusCounts.find((s) => s.upload_status === "DRIVE_FAILED")?.n ?? 0;
   const recentAssets = getDb()
     .prepare(
       `SELECT id, source, stored_filename, upload_status FROM assets
@@ -45,12 +57,13 @@ export default function SettingsPage() {
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>Google Drive</h2>
-        <p>
-          Status: <span className="badge warn">Not connected（v0.1 Day 2で実装予定）</span>
-        </p>
-        <p className="muted">
-          PROJECT_10K folder: {driveFolder || "未作成"}
-        </p>
+        <DriveTools
+          configured={driveConfigured()}
+          connected={driveConnected()}
+          rootFolderId={driveFolder}
+          pendingCount={pendingCount}
+          failedCount={failedCount}
+        />
       </div>
 
       <div className="panel">
