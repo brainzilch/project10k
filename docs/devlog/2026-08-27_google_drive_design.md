@@ -61,3 +61,20 @@ v0.1では `PROJECT_10K/AI_CHAT/images/` への保存が必須。他は作成の
 
 ローカル検証済み: バックアップDLのDB整合性、未接続時の全エンドポイントの安全動作、
 OAuth リダイレクトURL生成。Google API 実通信は本番でOAuth接続後に Test Upload で確認する。
+
+## 本番接続完了 — v0.1完成（Day 1）
+
+OAuth接続時に3つのエラーを順に解決した（すべてnote素材になる実録）:
+
+1. `redirect_uri_mismatch`（1回目）: リダイレクトURIの不一致
+2. `access_denied`: OAuth同意画面のテストユーザー未登録 → 本人のGmailを追加
+3. `redirect_uri_mismatch`（2回目・真因）: Railwayプロキシ背後でNext.jsがリクエスト元を
+   `localhost:8080` と認識し、`https://localhost:8080/...` を送っていた。
+   Googleのエラー詳細画面で実際の送信値を確認して特定。
+   `x-forwarded-host` / `x-forwarded-proto` ヘッダーから公開URLを組み立てる修正で解決。
+   環境変数 GOOGLE_REDIRECT_URI への依存も廃止（設定ミスの余地を排除）
+
+最終確認: AI Chatで画像送信 → Claude応答 → 「Local ✓ Drive ✓」バッジ →
+PROJECT_10K/AI_CHAT/images/ への自動保存を本番で確認。
+
+**指示書43条の完成条件10項目を全て達成。CLIMB v0.1完成（Day 1で完了）。**
