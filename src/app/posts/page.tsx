@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import CopyButton from "@/components/CopyButton";
 import MetricsForm from "./MetricsForm";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +102,9 @@ export default function PostsPage() {
             <>
               <h2>FINAL</h2>
               <pre className="plain">{p.final_text}</pre>
+              <div style={{ marginTop: 8 }}>
+                <CopyButton text={p.final_text} label="FINALをコピー" />
+              </div>
             </>
           )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import CopyButton from "@/components/CopyButton";
 
 type Step = "raw" | "diagnosed" | "done";
 
@@ -186,13 +187,14 @@ export default function ComposePage() {
               value={finalText}
               onChange={(e) => setFinalText(e.target.value)}
             />
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <button onClick={() => saveFinal(false)} disabled={!finalText.trim() || busy !== ""}>
                 FINAL保存
               </button>
               <button onClick={() => saveFinal(true)} disabled={!finalText.trim() || busy !== ""}>
                 FINAL保存＋投稿済みにする
               </button>
+              <CopyButton text={finalText} label="FINALをコピー" />
             </div>
             <p className="muted" style={{ marginBottom: 0 }}>
               文字数: {finalText.length}（Xへの投稿は本人が行う）
@@ -206,7 +208,10 @@ export default function ComposePage() {
           <p>
             保存しました。<span className="badge ok">post #{postId}</span>
           </p>
-          <button onClick={reset}>次の投稿を書く</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <CopyButton text={finalText} label="FINALをコピー（Xへ貼り付け）" />
+            <button onClick={reset}>次の投稿を書く</button>
+          </div>
         </div>
       )}
     </div>

@@ -92,11 +92,10 @@ export default function ChatPage() {
   return (
     <div>
       <h1>AI Chat</h1>
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ width: 220, flexShrink: 0 }}>
+      <div className="chat-layout">
+        <div className="chat-sidebar">
           <button
-            className="secondary"
-            style={{ width: "100%", marginBottom: 8 }}
+            className="secondary new-chat-btn"
             onClick={() => {
               setConversationId(null);
               setMessages([]);
@@ -109,23 +108,14 @@ export default function ChatPage() {
             <div
               key={c.id}
               onClick={() => openConversation(c.id)}
-              style={{
-                padding: "6px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 13,
-                background: c.id === conversationId ? "#21262f" : "transparent",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
+              className={`conv-item${c.id === conversationId ? " active" : ""}`}
             >
               {c.title || `#${c.id}`}
             </div>
           ))}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="chat-main">
           <div className="panel" style={{ minHeight: 240 }}>
             {messages.length === 0 && (
               <p className="muted">

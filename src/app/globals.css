@@ -182,3 +182,92 @@ pre.plain {
   font-family: inherit;
   margin: 0;
 }
+
+/* wide tables scroll inside their panel instead of breaking the page */
+.panel {
+  overflow-x: auto;
+}
+
+img {
+  max-width: 100%;
+}
+
+.chat-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.chat-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.chat-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.conv-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-item.active {
+  background: #21262f;
+}
+
+.new-chat-btn {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* smartphone layout - posting from a phone is the primary use case */
+@media (max-width: 700px) {
+  main {
+    padding: 16px 10px 60px;
+  }
+
+  nav.topnav {
+    padding: 8px 10px;
+  }
+
+  .big-number {
+    font-size: 26px;
+  }
+
+  .chat-layout {
+    flex-direction: column;
+  }
+
+  /* conversation list becomes a horizontal chip row */
+  .chat-sidebar {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .chat-sidebar .new-chat-btn {
+    width: auto;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .conv-item {
+    flex-shrink: 0;
+    max-width: 160px;
+    border: 1px solid var(--border);
+  }
+
+  input[type="date"],
+  input[type="number"] {
+    max-width: 100%;
+  }
+}

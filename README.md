@@ -29,6 +29,24 @@ npm run dev                  # http://localhost:3000
 
 初回起動時に `data/climb.db` が作成され、PROJECT 10K の初期値（開始日・1458・10000・365日）が自動seedされる。
 
+## スマホからの利用（メインの投稿手段）
+
+PCでCLIMBを起動したまま、同じWi-Fiに繋がったスマホのブラウザからアクセスする。
+
+1. PCで `npm run dev` を起動すると、起動ログに `Network: http://192.168.x.x:3000` のようなURLが表示される（PCのIPは `ipconfig` の「IPv4 アドレス」でも確認可能）
+2. スマホのブラウザでそのURL（例: `http://192.168.1.5:3000`）を開く
+3. ホーム画面に追加しておくとアプリのように起動できる
+
+スマホでの投稿フロー: Compose で原文を書く → AI診断 → FINAL保存 →「FINALをコピー」→ Xアプリに貼り付けて投稿。写真・スクショの添付も AI Chat からそのまま送れる（カメラロールから選択可）。
+
+つながらない場合は Windows ファイアウォールで Node.js がブロックされている。初回起動時の許可ダイアログで「プライベートネットワーク」を許可するか、管理者のコマンドプロンプトで:
+
+```cmd
+netsh advfirewall firewall add rule name="CLIMB 3000" dir=in action=allow protocol=TCP localport=3000
+```
+
+※ 同一Wi-Fi内のみ。外出先からのアクセスが必要になったら、その時点でTailscale等を検討する（v0.1では作らない）。
+
 ## 環境変数（.env.local）
 
 | 変数 | 必須 | 説明 |
