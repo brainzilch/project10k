@@ -74,3 +74,13 @@ Drive接続後は、これらのAssetも既存のupload_status機構でそのま
 - 「PCを起動していない時も使いたい」要望に備え、CLIMB_PASSWORD 環境変数による
   パスワードゲート（middleware + /login）を実装。未設定ならローカル利用に影響なし。
   クラウド常時稼働（VPS等）に載せる際の前提。ホスティング先は本人が選択する
+
+## 追記4: Railwayへのクラウドデプロイ完了（Day 1）
+
+- https://project10k-production.up.railway.app で常時稼働開始（本人がセットアップ）
+- 構成: Dockerfile / 永続ボリューム `/data`（SQLite+画像原本）/ 環境変数
+  ANTHROPIC_API_KEY・CLIMB_PASSWORD・CLIMB_DATA_DIR / 公開ポートは
+  Railway注入の PORT=8080（next startが自動追従。本人が検出して設定）
+- 以後クラウド側がデータの原本。PCローカル版とは併用しない
+- git push で自動再デプロイ（ブランチ: claude/climb-v0-1-init-o5e7o2 を追跡）
+- パスワード等の秘密情報はリポジトリに含めない（Railway Variablesのみ）
