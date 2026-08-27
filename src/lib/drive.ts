@@ -12,10 +12,24 @@ const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
+// Public origin of the running app. Behind a proxy (Railway), Next's
+// request URL resolves to localhost:<port>, so the real host must come from
+// the forwarded headers.
+export function publicOrigin(headers: Headers, fallbackOrigin: string): string {
+  const host =
+    headers.get("x-forwarded-host") ?? headers.get("host") ?? "";
+  if (!host) return fallbackOrigin;
+  const isLocal =
+    host.startsWith("localhost") || host.startsWith("127.0.0.1");
+  const proto = isLocal
+    ? "http"
+    : (headers.get("x-forwarded-proto")?.split(",")[0] ?? "https");
+  return `${proto}://${host}`;
+}
+
 // The OAuth redirect URI is always derived from the URL being accessed - env
 // overrides caused a class of misconfiguration (stale localhost values), so
-// they are deliberately ignored. Behind a proxy (Railway) the derived protocol
-// can be http, so force https for any non-local host.
+// they are deliberately ignored. Force https for any non-local host.
 export function redirectUriFor(origin: string): string {
   const url = new URL("/api/drive/oauth/callback", origin);
   if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
