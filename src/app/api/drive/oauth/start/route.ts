@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { driveConfigured, DRIVE_SCOPE } from "@/lib/drive";
+import { driveConfigured, DRIVE_SCOPE, redirectUriFor } from "@/lib/drive";
 
 export async function GET(req: NextRequest) {
   if (!driveConfigured()) {
@@ -9,9 +9,7 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI ||
-    `${req.nextUrl.origin}/api/drive/oauth/callback`;
+  const redirectUri = redirectUriFor(req.nextUrl.origin);
   const state = crypto.randomBytes(16).toString("hex");
 
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");

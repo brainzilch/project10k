@@ -12,6 +12,19 @@ const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
+// The OAuth redirect URI is always derived from the URL being accessed - env
+// overrides caused a class of misconfiguration (stale localhost values), so
+// they are deliberately ignored. Behind a proxy (Railway) the derived protocol
+// can be http, so force https for any non-local host.
+export function redirectUriFor(origin: string): string {
+  const url = new URL("/api/drive/oauth/callback", origin);
+  if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+    url.protocol = "https:";
+    url.port = "";
+  }
+  return url.toString();
+}
+
 export function driveConfigured(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }

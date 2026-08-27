@@ -70,7 +70,7 @@ Railway の例: GitHubリポジトリを接続 → Volume を `/data` に追加 
 |---|---|---|
 | `ANTHROPIC_API_KEY` | AI機能に必須 | Anthropic APIキー |
 | `CLIMB_CLAUDE_MODEL` | 任意 | Claudeモデル名（既定: `claude-opus-5`。Settings画面からも変更可） |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | Drive連携時 | Google Drive OAuth 2.0（Day 2で実装） |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Drive連携時 | Google Drive OAuth 2.0 |
 | `CLIMB_DATA_DIR` | 任意 | データディレクトリの場所（既定: `./data`） |
 
 **`.env` / `.env.local` は絶対にGitへコミットしない**（`.gitignore` 済み）。APIキー・OAuthトークンをDBに平文保存しない。
@@ -91,7 +91,7 @@ Railway の例: GitHubリポジトリを接続 → Volume を `/data` に追加 
      `https://<あなたのドメイン>/api/drive/oauth/callback`
      （例: `https://project10k-production.up.railway.app/api/drive/oauth/callback`）
 5. 発行された client ID / client secret を環境変数に設定（Railwayなら Variables、ローカルなら `.env.local`）:
-   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（`GOOGLE_REDIRECT_URI` は省略可 — アクセス中のURLから自動導出される）
+   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（リダイレクトURIはアクセス中のURLから自動導出されるため設定不要）
 6. CLIMB の Settings → **Connect Google Drive** で本人のGoogleアカウントを認証（サービスアカウントは使わない）
 7. 認証完了と同時に My Drive に `PROJECT_10K/` フォルダ構成が自動作成される → **Test Upload** で確認
 

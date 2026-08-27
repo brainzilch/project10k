@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureFolderStructure, saveTokens } from "@/lib/drive";
+import { ensureFolderStructure, redirectUriFor, saveTokens } from "@/lib/drive";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -16,9 +16,7 @@ export async function GET(req: NextRequest) {
   if (!code) return fail("認証がキャンセルされました");
   if (!state || state !== expectedState) return fail("stateが一致しません（再試行してください）");
 
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI ||
-    `${req.nextUrl.origin}/api/drive/oauth/callback`;
+  const redirectUri = redirectUriFor(req.nextUrl.origin);
 
   try {
     const res = await fetch("https://oauth2.googleapis.com/token", {
