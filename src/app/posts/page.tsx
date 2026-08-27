@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import CopyButton from "@/components/CopyButton";
 import MetricsForm from "./MetricsForm";
+import PublishButton from "./PublishButton";
 
 export const dynamic = "force-dynamic";
 
@@ -142,8 +143,9 @@ export default function PostsPage() {
             </>
           )}
 
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <MetricsForm postId={p.id} />
+            {p.status === "FINAL" && <PublishButton postId={p.id} />}
           </div>
         </div>
       ))}
