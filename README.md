@@ -45,7 +45,24 @@ PCでCLIMBを起動したまま、同じWi-Fiに繋がったスマホのブラ�
 netsh advfirewall firewall add rule name="CLIMB 3000" dir=in action=allow protocol=TCP localport=3000
 ```
 
-※ 同一Wi-Fi内のみ。外出先からのアクセスが必要になったら、その時点でTailscale等を検討する（v0.1では作らない）。
+※ 同一Wi-Fi内のみ。PCを起動していない時も使う場合は、次の「クラウド常時稼働」を使う。
+
+## クラウド常時稼働（PCなしでスマホから使う）
+
+CLIMBは設計を変えずにそのまま小さなクラウドサーバーで動く（`Dockerfile` 同梱）。
+Railway / Fly.io / Render / 任意のVPSいずれでも同じ。必須条件は3つ:
+
+1. **永続ボリュームを `/data` にマウントする**（SQLite・画像の原本がここに入る。ボリュームなしのデプロイはデータが消えるので厳禁）
+2. **環境変数を設定する**: `ANTHROPIC_API_KEY`、`CLIMB_PASSWORD`（公開URLになるので必須）、`CLIMB_DATA_DIR=/data`
+3. HTTPSで公開する（Railway/Fly/Renderは自動）
+
+Railway の例: GitHubリポジトリを接続 → Volume を `/data` に追加 → 環境変数を設定 → デプロイ。
+以後 `git push` するだけで自動更新される。
+
+- スマホからは発行されたURL（`https://〜`）を開き、`CLIMB_PASSWORD` でログイン。ホーム画面に追加してアプリのように使う
+- クラウド運用開始後は**クラウド側が原本**。ローカルPC側と二重運用しない（DBが分裂する）
+- ローカルで使い始めたデータを引き継ぐ場合は `data/climb.db` をボリュームへコピーする（少量なら手入力し直しでもよい）
+- 「CLIMB全画面をスクショ」はサーバー内のChromiumで動作する。Windowsホットキースクリプトのスクショは、Drive連携完成後はDrive経由で取り込む形になる
 
 ## 環境変数（.env.local）
 

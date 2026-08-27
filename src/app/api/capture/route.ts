@@ -16,9 +16,18 @@ const PAGES: [string, string][] = [
 
 // Uses an installed Chrome/Edge (playwright-core ships no browser binary).
 async function launchBrowser(): Promise<Browser> {
-  const candidates: { executablePath?: string; channel?: string }[] = [];
+  const candidates: {
+    executablePath?: string;
+    channel?: string;
+    args?: string[];
+  }[] = [];
   if (process.env.CLIMB_CHROME_PATH) {
-    candidates.push({ executablePath: process.env.CLIMB_CHROME_PATH });
+    // explicit path implies a container/server context, where Chromium's
+    // sandbox is typically unavailable; the only pages visited are CLIMB's own
+    candidates.push({
+      executablePath: process.env.CLIMB_CHROME_PATH,
+      args: ["--no-sandbox"],
+    });
   }
   candidates.push({ channel: "chrome" }, { channel: "msedge" });
 
