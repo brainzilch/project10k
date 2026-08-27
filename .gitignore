@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# local data: DB, uploaded images, exports (originals live here - never in git)
+data/
+
+# secrets - NEVER commit
+.env
+.env.local
+.env*.local
+*.token.json
+google-oauth-token.json
+
+# misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
