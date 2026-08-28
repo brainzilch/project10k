@@ -43,6 +43,18 @@ export default function PostsPage() {
       `SELECT pt.post_id, t.name FROM post_tags pt JOIN tags t ON t.id = pt.tag_id`,
     )
     .all() as { post_id: number; name: string }[];
+  const revisionRows = db
+    .prepare(
+      "SELECT post_id, revision, kind, text, ai_feedback, created_at FROM post_revisions ORDER BY post_id, revision ASC",
+    )
+    .all() as {
+    post_id: number;
+    revision: number;
+    kind: string;
+    text: string;
+    ai_feedback: string | null;
+    created_at: string;
+  }[];
 
   const metricsByPost = new Map<number, Metric[]>();
   for (const m of metrics) {
@@ -56,6 +68,20 @@ export default function PostsPage() {
     list.push(t.name);
     tagsByPost.set(t.post_id, list);
   }
+  const revisionsByPost = new Map<number, typeof revisionRows>();
+  for (const r of revisionRows) {
+    const list = revisionsByPost.get(r.post_id) ?? [];
+    list.push(r);
+    revisionsByPost.set(r.post_id, list);
+  }
+  const kindLabel = (kind: string, draftNumber: number) =>
+    kind === "RAW"
+      ? "第1稿（RAW）"
+      : kind === "REWRITE"
+        ? `第${draftNumber}稿（書き直し）`
+        : kind === "AI_EDIT"
+          ? "AI提案"
+          : "FINAL";
 
   return (
     <div>
@@ -82,31 +108,69 @@ export default function PostsPage() {
             </span>
           </div>
 
-          <h2>RAW</h2>
-          <pre className="plain">{p.raw_text}</pre>
-
-          {p.ai_feedback && (
-            <>
-              <h2>AI診断</h2>
-              <pre className="plain muted">{p.ai_feedback}</pre>
-            </>
-          )}
-
-          {p.ai_minimal_edit && (
-            <>
-              <h2>最小修正版</h2>
-              <pre className="plain muted">{p.ai_minimal_edit}</pre>
-            </>
-          )}
+          {(() => {
+            const revisions = revisionsByPost.get(p.id) ?? [];
+            if (revisions.length === 0) {
+              // posts created before revision tracking existed
+              return (
+                <>
+                  <h2>RAW</h2>
+                  <pre className="plain">{p.raw_text}</pre>
+                  {p.ai_feedback && (
+                    <>
+                      <h2>AI診断</h2>
+                      <pre className="plain muted">{p.ai_feedback}</pre>
+                    </>
+                  )}
+                  {p.ai_minimal_edit && (
+                    <>
+                      <h2>AI提案</h2>
+                      <pre className="plain muted">{p.ai_minimal_edit}</pre>
+                    </>
+                  )}
+                </>
+              );
+            }
+            let draftNumber = 0;
+            return (
+              <>
+                <h2>推敲の記録</h2>
+                {revisions.map((r) => {
+                  if (r.kind === "RAW" || r.kind === "REWRITE") draftNumber++;
+                  return (
+                    <div key={r.revision} style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span
+                          className={`badge ${r.kind === "FINAL" ? "ok" : r.kind === "AI_EDIT" ? "" : "warn"}`}
+                        >
+                          {kindLabel(r.kind, draftNumber)}
+                        </span>
+                        <span className="muted" style={{ fontSize: 12 }}>
+                          {r.created_at}
+                        </span>
+                      </div>
+                      <pre className={`plain${r.kind === "AI_EDIT" ? " muted" : ""}`}>
+                        {r.text}
+                      </pre>
+                      {r.ai_feedback && (
+                        <pre
+                          className="plain muted"
+                          style={{ fontSize: 13, borderLeft: "2px solid #2a2f3a", paddingLeft: 8 }}
+                        >
+                          {r.ai_feedback}
+                        </pre>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
 
           {p.final_text && (
-            <>
-              <h2>FINAL</h2>
-              <pre className="plain">{p.final_text}</pre>
-              <div style={{ marginTop: 8 }}>
-                <CopyButton text={p.final_text} label="FINALをコピー" />
-              </div>
-            </>
+            <div style={{ marginTop: 8 }}>
+              <CopyButton text={p.final_text} label="FINALをコピー" />
+            </div>
           )}
 
           {(metricsByPost.get(p.id) ?? []).length > 0 && (

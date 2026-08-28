@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
     const { lastInsertRowid } = db
       .prepare("INSERT INTO posts (post_type, raw_text) VALUES (?, ?)")
       .run(postType, rawText);
+    db.prepare(
+      "INSERT INTO post_revisions (post_id, revision, kind, text) VALUES (?, 1, 'RAW', ?)",
+    ).run(lastInsertRowid, rawText);
     const insertTag = db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)");
     const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
     const link = db.prepare(

@@ -91,6 +91,21 @@ CREATE TABLE IF NOT EXISTS posts (
   published_at TEXT
 );
 
+-- Every drafting stage of a post, in order: the rewriting process itself is
+-- PROJECT 10K story material. RAW = first draft, REWRITE = user's rewrite,
+-- AI_EDIT = the suggestion-applied version Claude produced, FINAL = what was
+-- saved as final. Rows are append-only.
+CREATE TABLE IF NOT EXISTS post_revisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL REFERENCES posts(id),
+  revision INTEGER NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('RAW', 'REWRITE', 'AI_EDIT', 'FINAL')),
+  text TEXT NOT NULL,
+  ai_feedback TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_post_revisions_post ON post_revisions(post_id);
+
 -- Free-form tags (not a fixed set of 5)
 CREATE TABLE IF NOT EXISTS tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

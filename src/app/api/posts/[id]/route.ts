@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, inTransaction } from "@/lib/db";
 
 // Save FINAL text / mark published. RAW is immutable - only final-stage fields change.
 export async function PATCH(
@@ -13,10 +13,20 @@ export async function PATCH(
   if (!post) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   if (typeof body.final_text === "string") {
-    db.prepare(
-      `UPDATE posts SET final_text = ?, minimal_edit_used = ?, status = 'FINAL'
-       WHERE id = ?`,
-    ).run(body.final_text, body.minimal_edit_used ? 1 : 0, id);
+    inTransaction(() => {
+      db.prepare(
+        `UPDATE posts SET final_text = ?, minimal_edit_used = ?, status = 'FINAL'
+         WHERE id = ?`,
+      ).run(body.final_text, body.minimal_edit_used ? 1 : 0, id);
+      const { next } = db
+        .prepare(
+          "SELECT COALESCE(MAX(revision), 0) + 1 AS next FROM post_revisions WHERE post_id = ?",
+        )
+        .get(id) as { next: number };
+      db.prepare(
+        "INSERT INTO post_revisions (post_id, revision, kind, text) VALUES (?, ?, 'FINAL', ?)",
+      ).run(id, next, body.final_text);
+    });
   }
   if (body.published === true) {
     db.prepare(
