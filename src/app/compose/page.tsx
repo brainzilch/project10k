@@ -95,7 +95,7 @@ export default function ComposePage() {
     });
     setBusy("");
     if (!res.ok) {
-      setError("FINALの保存に失敗しました");
+      setError("完成版の保存に失敗しました");
       return;
     }
     setStep("done");
@@ -125,7 +125,7 @@ export default function ComposePage() {
 
       {step === "raw" && (
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>RAW（本人が書く原文）</h2>
+          <h2 style={{ marginTop: 0 }}>原文（本人が書く）</h2>
           <textarea
             rows={6}
             value={rawText}
@@ -137,8 +137,8 @@ export default function ComposePage() {
               value={postType}
               onChange={(e) => setPostType(e.target.value as "PRIMARY" | "CASUAL")}
             >
-              <option value="PRIMARY">PRIMARY</option>
-              <option value="CASUAL">CASUAL</option>
+              <option value="PRIMARY">本気投稿</option>
+              <option value="CASUAL">気軽な投稿</option>
             </select>
             <input
               placeholder="タグ（カンマ/空白区切り）"
@@ -197,7 +197,7 @@ export default function ComposePage() {
               <pre className="plain">{aiEdit}</pre>
               <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                 <button className="secondary" onClick={() => setFinalText(aiEdit)}>
-                  この文面をFINAL候補にする
+                  この文面を完成版の候補にする
                 </button>
                 <button
                   className="secondary"
@@ -210,7 +210,7 @@ export default function ComposePage() {
           )}
 
           <div className="panel">
-            <h2 style={{ marginTop: 0 }}>FINAL</h2>
+            <h2 style={{ marginTop: 0 }}>完成版</h2>
             <textarea
               rows={6}
               value={finalText}
@@ -218,12 +218,12 @@ export default function ComposePage() {
             />
             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <button onClick={() => saveFinal(false)} disabled={!finalText.trim() || busy !== ""}>
-                FINAL保存
+                完成版を保存
               </button>
               <button onClick={() => saveFinal(true)} disabled={!finalText.trim() || busy !== ""}>
-                FINAL保存＋投稿済みにする
+                完成版を保存＋投稿済みにする
               </button>
-              <CopyButton text={finalText} label="FINALをコピー" />
+              <CopyButton text={finalText} label="完成版をコピー" />
             </div>
             <p className="muted" style={{ marginBottom: 0 }}>
               文字数: {finalText.length}（Xへの投稿は本人が行う）
@@ -239,7 +239,7 @@ export default function ComposePage() {
             <span className="muted">　全{draftCount}稿の推敲記録つき</span>
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <CopyButton text={finalText} label="FINALをコピー（Xへ貼り付け）" />
+            <CopyButton text={finalText} label="完成版をコピー（Xへ貼り付け）" />
             <button onClick={reset}>次の投稿を書く</button>
           </div>
         </div>

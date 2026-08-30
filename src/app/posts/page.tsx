@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { postTypeLabel } from "@/lib/labels";
 import CopyButton from "@/components/CopyButton";
 import ImportMetricsForm from "./ImportMetricsForm";
 import MetricsForm from "./MetricsForm";
@@ -78,12 +79,12 @@ export default function PostsPage() {
   }
   const kindLabel = (kind: string, draftNumber: number) =>
     kind === "RAW"
-      ? "第1稿（RAW）"
+      ? "第1稿（原文）"
       : kind === "REWRITE"
         ? `第${draftNumber}稿（書き直し）`
         : kind === "AI_EDIT"
           ? "AI提案"
-          : "FINAL";
+          : "完成版";
 
   return (
     <div>
@@ -95,14 +96,14 @@ export default function PostsPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <strong>#{p.id}</strong>
             {p.origin === "X_DIRECT" && <span className="badge warn">直接投稿(X)</span>}
-            <span className="badge">{p.post_type}</span>
+            <span className="badge">{postTypeLabel(p.post_type)}</span>
             <span
               className={`badge ${p.status === "PUBLISHED" ? "ok" : p.status === "FINAL" ? "warn" : ""}`}
             >
               {p.status === "PUBLISHED"
                 ? "投稿済み"
                 : p.status === "FINAL"
-                  ? "FINAL保存済み"
+                  ? "完成版保存済み"
                   : "下書き"}
             </span>
             {p.minimal_edit_used === 1 && <span className="badge">minimal edit</span>}
@@ -122,7 +123,7 @@ export default function PostsPage() {
               // direct X posts and posts created before revision tracking
               return (
                 <>
-                  <h2>{p.origin === "X_DIRECT" ? "本文（Xから取込）" : "RAW"}</h2>
+                  <h2>{p.origin === "X_DIRECT" ? "本文（Xから取込）" : "原文"}</h2>
                   <pre className="plain">{p.raw_text}</pre>
                   {p.ai_feedback && (
                     <>
@@ -177,7 +178,7 @@ export default function PostsPage() {
 
           {p.final_text && (
             <div style={{ marginTop: 8 }}>
-              <CopyButton text={p.final_text} label="FINALをコピー" />
+              <CopyButton text={p.final_text} label="完成版をコピー" />
             </div>
           )}
 

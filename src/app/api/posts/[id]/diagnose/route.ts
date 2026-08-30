@@ -6,6 +6,7 @@ import {
   MINIMAL_EDIT_SYSTEM,
   PROMPT_VERSION,
 } from "@/lib/diagnosis";
+import { postTypeLabel } from "@/lib/labels";
 
 // Diagnose the latest draft (RAW or REWRITE) and, in the same run, produce the
 // single suggestion-applied version so the user can compare before deciding to
@@ -41,7 +42,7 @@ export async function POST(
       messages: [
         {
           role: "user",
-          content: `投稿タイプ: ${post.post_type}\n\n投稿原文:\n${text}`,
+          content: `投稿タイプ: ${postTypeLabel(post.post_type)}\n\n投稿原文:\n${text}`,
         },
       ],
     });

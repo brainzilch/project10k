@@ -131,9 +131,9 @@ export default function WeeklyPage() {
               <th>週初</th>
               <th>週末</th>
               <th>増減</th>
-              <th>PRIMARY</th>
-              <th>CASUAL</th>
-              <th>投稿日数</th>
+              <th>本気投稿</th>
+              <th>気軽な投稿</th>
+              <th>本気投稿日数</th>
               <th>AI案使用率</th>
               <th>インプ合計</th>
               <th>時間(分)</th>
