@@ -46,7 +46,7 @@ export function BackupButton() {
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button onClick={backup} disabled={busy}>
-          {busy ? "Backing up..." : "Backup Now"}
+          {busy ? "バックアップ中..." : "今すぐバックアップ"}
         </button>
         <a href="/api/backup/download">
           <button className="secondary">バックアップをダウンロード</button>

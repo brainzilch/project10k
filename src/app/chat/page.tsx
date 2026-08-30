@@ -91,7 +91,7 @@ export default function ChatPage() {
 
   return (
     <div>
-      <h1>AI Chat</h1>
+      <h1>AIチャット</h1>
       <div className="chat-layout">
         <div className="chat-sidebar">
           <button
@@ -102,7 +102,7 @@ export default function ChatPage() {
               setError("");
             }}
           >
-            + New Chat
+            ＋ 新しい会話
           </button>
           {conversations.map((c) => (
             <div
@@ -125,7 +125,7 @@ export default function ChatPage() {
             {messages.map((m) => (
               <div key={m.id} style={{ marginBottom: 16 }}>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  {m.role === "user" ? "You" : `Claude${m.model ? ` (${m.model})` : ""}`}
+                  {m.role === "user" ? "あなた" : `Claude${m.model ? ` (${m.model})` : ""}`}
                 </div>
                 {m.attachments.length > 0 && (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "4px 0" }}>
@@ -174,7 +174,7 @@ export default function ChatPage() {
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
               <button onClick={send} disabled={sending || (!text.trim() && files.length === 0)}>
-                {sending ? "Sending..." : "Send"}
+                {sending ? "送信中..." : "送信"}
               </button>
             </div>
             {files.length > 0 && (

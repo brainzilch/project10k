@@ -8,13 +8,13 @@ export const metadata: Metadata = {
 };
 
 const NAV = [
-  { href: "/", label: "Dashboard" },
-  { href: "/compose", label: "Compose" },
-  { href: "/chat", label: "AI Chat" },
-  { href: "/posts", label: "Posts" },
-  { href: "/followers", label: "Followers" },
-  { href: "/weekly", label: "Weekly" },
-  { href: "/settings", label: "Settings" },
+  { href: "/", label: "ホーム" },
+  { href: "/compose", label: "投稿を書く" },
+  { href: "/chat", label: "AIチャット" },
+  { href: "/posts", label: "投稿一覧" },
+  { href: "/followers", label: "フォロワー" },
+  { href: "/weekly", label: "週次" },
+  { href: "/settings", label: "設定" },
 ];
 
 export default function RootLayout({

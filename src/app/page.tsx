@@ -42,16 +42,16 @@ export default function Dashboard() {
       </p>
       <div className="stat-grid">
         <div className="panel">
-          <div className="muted">Current Followers</div>
+          <div className="muted">現在のフォロワー</div>
           <div className="big-number">{current.toLocaleString()}</div>
-          {latest && <div className="muted">as of {latest.date}</div>}
+          {latest && <div className="muted">{latest.date} 時点</div>}
         </div>
         <div className="panel">
-          <div className="muted">Remaining</div>
+          <div className="muted">目標まで</div>
           <div className="big-number">{remaining.toLocaleString()}</div>
         </div>
         <div className="panel">
-          <div className="muted">Day</div>
+          <div className="muted">経過日数</div>
           <div className="big-number">
             {day} / {duration}
           </div>

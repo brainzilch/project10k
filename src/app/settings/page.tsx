@@ -39,19 +39,19 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h1>Settings</h1>
+      <h1>設定</h1>
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>Anthropic API</h2>
         <p>
-          API Key:{" "}
+          APIキー:{" "}
           {apiKeySet ? (
-            <span className="badge ok">set (.env)</span>
+            <span className="badge ok">設定済み</span>
           ) : (
-            <span className="badge err">not set - .env.local に ANTHROPIC_API_KEY を設定</span>
+            <span className="badge err">未設定 - 環境変数 ANTHROPIC_API_KEY を設定</span>
           )}
         </p>
-        <p className="muted">Claude model（診断・チャット共通）:</p>
+        <p className="muted">Claudeモデル（診断・チャット共通）:</p>
         <ModelForm current={model} />
       </div>
 
@@ -82,8 +82,8 @@ export default function SettingsPage() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Source</th>
-                <th>File</th>
+                <th>分類</th>
+                <th>ファイル</th>
                 <th>Drive</th>
               </tr>
             </thead>
@@ -106,8 +106,8 @@ export default function SettingsPage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>Database</h2>
-        <p className="muted">Location: {DB_PATH}</p>
+        <h2 style={{ marginTop: 0 }}>データベース</h2>
+        <p className="muted">保存場所: {DB_PATH}</p>
         <BackupButton />
       </div>
     </div>

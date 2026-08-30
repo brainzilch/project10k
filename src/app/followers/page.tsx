@@ -12,7 +12,7 @@ export default function FollowersPage() {
 
   return (
     <div>
-      <h1>Followers</h1>
+      <h1>フォロワー記録</h1>
       <FollowerForm today={today} />
       <div className="panel">
         <FollowerChart data={rows} />
@@ -21,8 +21,8 @@ export default function FollowersPage() {
         <table>
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Followers</th>
+              <th>日付</th>
+              <th>フォロワー数</th>
             </tr>
           </thead>
           <tbody>

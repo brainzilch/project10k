@@ -34,13 +34,13 @@ export default function FollowerForm({ today }: { today: string }) {
         <input
           type="number"
           min="0"
-          placeholder="followers"
+          placeholder="フォロワー数"
           value={followers}
           onChange={(e) => setFollowers(e.target.value)}
           style={{ width: 140 }}
         />
         <button onClick={save} disabled={saving || followers === ""}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? "保存中..." : "保存"}
         </button>
         {error && <span className="badge err">{error}</span>}
       </div>

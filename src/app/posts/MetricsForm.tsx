@@ -4,13 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const FIELDS = [
-  ["impressions", "Imp"],
-  ["likes", "Likes"],
+  ["impressions", "インプ"],
+  ["likes", "いいね"],
   ["reposts", "RP"],
-  ["replies", "Rep"],
-  ["bookmarks", "BM"],
-  ["profile_visits", "Prof"],
-  ["follows", "Fol"],
+  ["replies", "返信"],
+  ["bookmarks", "ブクマ"],
+  ["profile_visits", "プロフ"],
+  ["follows", "フォロー"],
 ] as const;
 
 export default function MetricsForm({ postId }: { postId: number }) {
@@ -54,7 +54,7 @@ export default function MetricsForm({ postId }: { postId: number }) {
         />
       ))}
       <button onClick={save} disabled={saving}>
-        {saving ? "..." : "追加"}
+        {saving ? "..." : "記録する"}
       </button>
       <button className="secondary" onClick={() => setOpen(false)}>
         閉じる

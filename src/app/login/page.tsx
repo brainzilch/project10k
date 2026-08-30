@@ -40,7 +40,7 @@ export default function LoginPage() {
           autoFocus
         />
         <button onClick={login} disabled={busy || !password}>
-          {busy ? "..." : "Login"}
+          {busy ? "..." : "ログイン"}
         </button>
       </div>
       {error && (

@@ -87,7 +87,7 @@ export default function PostsPage() {
 
   return (
     <div>
-      <h1>Posts</h1>
+      <h1>投稿一覧</h1>
       <ImportMetricsForm />
       {posts.length === 0 && <p className="muted">まだ投稿がありません。</p>}
       {posts.map((p) => (
@@ -99,7 +99,11 @@ export default function PostsPage() {
             <span
               className={`badge ${p.status === "PUBLISHED" ? "ok" : p.status === "FINAL" ? "warn" : ""}`}
             >
-              {p.status}
+              {p.status === "PUBLISHED"
+                ? "投稿済み"
+                : p.status === "FINAL"
+                  ? "FINAL保存済み"
+                  : "下書き"}
             </span>
             {p.minimal_edit_used === 1 && <span className="badge">minimal edit</span>}
             {(tagsByPost.get(p.id) ?? []).map((t) => (
@@ -179,18 +183,18 @@ export default function PostsPage() {
 
           {(metricsByPost.get(p.id) ?? []).length > 0 && (
             <>
-              <h2>メトリクス</h2>
+              <h2>数字の記録</h2>
               <table>
                 <thead>
                   <tr>
-                    <th>Measured</th>
-                    <th>Imp</th>
-                    <th>Likes</th>
+                    <th>記録日時</th>
+                    <th>インプ</th>
+                    <th>いいね</th>
                     <th>RP</th>
-                    <th>Rep</th>
-                    <th>BM</th>
-                    <th>Prof</th>
-                    <th>Fol</th>
+                    <th>返信</th>
+                    <th>ブクマ</th>
+                    <th>プロフ</th>
+                    <th>フォロー</th>
                   </tr>
                 </thead>
                 <tbody>

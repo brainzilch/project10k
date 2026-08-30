@@ -21,7 +21,7 @@ function DriveToolsInner({
   const [busy, setBusy] = useState("");
   const [result, setResult] = useState(
     params.get("drive") === "connected"
-      ? "Google Drive Connected - PROJECT_10Kフォルダを作成しました"
+      ? "Google Driveに接続しました - PROJECT_10Kフォルダを作成済み"
       : params.get("drive_error")
         ? `接続エラー: ${params.get("drive_error")}`
         : "",
@@ -49,11 +49,11 @@ function DriveToolsInner({
   return (
     <div>
       <p style={{ marginTop: 0 }}>
-        Status:{" "}
+        状態:{" "}
         {connected ? (
-          <span className="badge ok">Google Drive Connected</span>
+          <span className="badge ok">接続済み</span>
         ) : (
-          <span className="badge warn">Not connected</span>
+          <span className="badge warn">未接続</span>
         )}
         {connected && (pendingCount > 0 || failedCount > 0) && (
           <span className="badge warn" style={{ marginLeft: 8 }}>
@@ -75,7 +75,7 @@ function DriveToolsInner({
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {!connected && (
           <button onClick={() => (window.location.href = "/api/drive/oauth/start")}>
-            Connect Google Drive
+            Google Driveに接続
           </button>
         )}
         {connected && (
@@ -87,7 +87,7 @@ function DriveToolsInner({
                 call("/api/drive/test", "test", (d) => `Test Upload成功: ${d.name}`)
               }
             >
-              {busy === "test" ? "送信中..." : "Test Upload"}
+              {busy === "test" ? "送信中..." : "テストアップロード"}
             </button>
             <button
               className="secondary"
@@ -120,7 +120,7 @@ function DriveToolsInner({
                 }
               }}
             >
-              Disconnect
+              接続解除
             </button>
           </>
         )}

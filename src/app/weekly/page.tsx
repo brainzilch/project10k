@@ -122,20 +122,20 @@ export default function WeeklyPage() {
 
   return (
     <div>
-      <h1>Weekly</h1>
+      <h1>週次サマリー</h1>
       <div className="panel" style={{ overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
-              <th>Week</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Net</th>
+              <th>週</th>
+              <th>週初</th>
+              <th>週末</th>
+              <th>増減</th>
               <th>PRIMARY</th>
               <th>CASUAL</th>
-              <th>PRIMARY日数</th>
-              <th>Edit使用率</th>
-              <th>Imp合計</th>
+              <th>投稿日数</th>
+              <th>AI案使用率</th>
+              <th>インプ合計</th>
               <th>時間(分)</th>
             </tr>
           </thead>
