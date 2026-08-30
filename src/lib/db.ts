@@ -33,8 +33,20 @@ export function getDb(): DatabaseSync {
     "utf-8",
   );
   db.exec(schema);
+  migrate(db);
   seed(db);
   return db;
+}
+
+// Column additions for DBs created before the column existed in schema.sql
+// (CREATE TABLE IF NOT EXISTS does not alter existing tables).
+function migrate(db: DatabaseSync) {
+  const postColumns = db.prepare("PRAGMA table_info(posts)").all() as {
+    name: string;
+  }[];
+  if (!postColumns.some((c) => c.name === "origin")) {
+    db.exec("ALTER TABLE posts ADD COLUMN origin TEXT NOT NULL DEFAULT 'CLIMB'");
+  }
 }
 
 // Run fn inside a transaction; rolls back on any error.

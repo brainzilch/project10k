@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import CopyButton from "@/components/CopyButton";
+import ImportMetricsForm from "./ImportMetricsForm";
 import MetricsForm from "./MetricsForm";
 import PublishButton from "./PublishButton";
 
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 type Post = {
   id: number;
+  origin: string;
   post_type: string;
   raw_text: string;
   ai_feedback: string | null;
@@ -86,11 +88,13 @@ export default function PostsPage() {
   return (
     <div>
       <h1>Posts</h1>
+      <ImportMetricsForm />
       {posts.length === 0 && <p className="muted">まだ投稿がありません。</p>}
       {posts.map((p) => (
         <div key={p.id} className="panel">
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <strong>#{p.id}</strong>
+            {p.origin === "X_DIRECT" && <span className="badge warn">直接投稿(X)</span>}
             <span className="badge">{p.post_type}</span>
             <span
               className={`badge ${p.status === "PUBLISHED" ? "ok" : p.status === "FINAL" ? "warn" : ""}`}
@@ -111,10 +115,10 @@ export default function PostsPage() {
           {(() => {
             const revisions = revisionsByPost.get(p.id) ?? [];
             if (revisions.length === 0) {
-              // posts created before revision tracking existed
+              // direct X posts and posts created before revision tracking
               return (
                 <>
-                  <h2>RAW</h2>
+                  <h2>{p.origin === "X_DIRECT" ? "本文（Xから取込）" : "RAW"}</h2>
                   <pre className="plain">{p.raw_text}</pre>
                   {p.ai_feedback && (
                     <>

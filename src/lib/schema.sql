@@ -76,9 +76,12 @@ CREATE TABLE IF NOT EXISTS message_attachments (
 CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id);
 
 -- X post drafts. RAW -> AI FEEDBACK -> AI MINIMAL EDIT (optional) -> FINAL -> RESULT
+-- origin: CLIMB = drafted in the app, X_DIRECT = posted directly on X and
+-- imported afterwards (e.g. from an analytics screenshot)
 CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source_id INTEGER REFERENCES sources(id),
+  origin TEXT NOT NULL DEFAULT 'CLIMB',
   post_type TEXT NOT NULL DEFAULT 'PRIMARY' CHECK (post_type IN ('PRIMARY', 'CASUAL')),
   raw_text TEXT NOT NULL,
   ai_feedback TEXT,
