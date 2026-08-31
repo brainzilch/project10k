@@ -2,6 +2,7 @@ import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
 import CoachPanel from "./CoachPanel";
+import ProposalsPanel from "./ProposalsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,21 @@ export default function Dashboard() {
       .prepare("SELECT COUNT(*) AS n FROM learnings WHERE active = 1")
       .get() as { n: number }
   ).n;
+  // node:sqlite rows have a null prototype, which Next refuses to pass to
+  // client components - spread into plain objects first.
+  const openProposals = (
+    getDb()
+      .prepare(
+        "SELECT id, title, reason, instruction, created_at FROM dev_proposals WHERE status = 'OPEN' ORDER BY id DESC",
+      )
+      .all() as {
+      id: number;
+      title: string;
+      reason: string;
+      instruction: string;
+      created_at: string;
+    }[]
+  ).map((r) => ({ ...r }));
 
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
@@ -81,6 +97,7 @@ export default function Dashboard() {
         reportedAt={latestReport?.created_at ?? null}
         learningsCount={learningsCount}
       />
+      <ProposalsPanel proposals={openProposals} />
     </div>
   );
 }

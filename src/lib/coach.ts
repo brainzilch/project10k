@@ -26,6 +26,18 @@ export function learningsPromptBlock(): string {
   return `\n\n【このアカウントの実測から得た学び（診断・提案に反映すること）】\n${lines}`;
 }
 
+// Current feature set, told to the coach so app-improvement proposals are
+// grounded in what exists. Update when features are added or changed.
+const APP_FEATURES = `CLIMBの現在の機能:
+- 投稿を書く: 原文→5項目AI診断+提案反映版(1案)→書き直し(全稿記録)→完成版保存/コピー
+- AIチャット: 会話全保存・画像添付(ローカル+Google Drive自動保存)
+- 投稿一覧: 推敲タイムライン・数字の手入力(追記型)・アナリティクススクショの自動読み取り(直接投稿の自動登録含む)
+- フォロワー: 日次手入力+折れ線グラフ
+- 週次: 数字サマリー・30日ペース換算・学び一覧・時間簿
+- 設定: モデル設定・Drive接続/テスト/再送・スクショ収集(自画面キャプチャ/アップロード)・バックアップ3種
+- ホーム: 進捗指標+AIコーチ(この分析)
+制約: 1人用/X API不使用/スマホ利用がメイン/シンプルさ優先(PROJECT 10K > 開発)`;
+
 // Compact snapshot of everything measured so far, for the coach analysis.
 export function buildCoachContext(): string {
   const db = getDb();
@@ -90,6 +102,30 @@ export function buildCoachContext(): string {
   if (learnings.length > 0) {
     lines.push(`\n■ 既に記録済みの学び（重複して出力しない）`);
     for (const l of learnings) lines.push(`- ${l.insight}`);
+  }
+
+  lines.push(`\n■ アプリの現状\n${APP_FEATURES}`);
+
+  const usage = db
+    .prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM posts) AS posts,
+        (SELECT COUNT(*) FROM post_metrics) AS metrics,
+        (SELECT COUNT(*) FROM messages) AS chat_messages,
+        (SELECT COUNT(*) FROM assets) AS assets,
+        (SELECT COUNT(*) FROM time_logs) AS time_logs`,
+    )
+    .get() as Record<string, number>;
+  lines.push(
+    `利用状況: 投稿${usage.posts}件 / 数字記録${usage.metrics}回 / チャット${usage.chat_messages}通 / 画像${usage.assets}枚 / 時間簿${usage.time_logs}件`,
+  );
+
+  const openProposals = db
+    .prepare("SELECT title FROM dev_proposals WHERE status = 'OPEN'")
+    .all() as { title: string }[];
+  if (openProposals.length > 0) {
+    lines.push(`\n■ 提案済みで未対応のアプリ改善案（重複して出力しない）`);
+    for (const p of openProposals) lines.push(`- ${p.title}`);
   }
 
   return lines.join("\n");

@@ -10,11 +10,15 @@ const COACH_SYSTEM = `あなたはPROJECT 10K（Xアカウントを365日で1,45
 {
   "summary": "現状分析（3行以内。数字を根拠に）",
   "actions": ["明日からできる具体的な一手（1行）", "…最大3つ"],
-  "learnings": [{"insight": "実測から言える教訓（1行）", "evidence": "根拠の数字"}]
+  "learnings": [{"insight": "実測から言える教訓（1行）", "evidence": "根拠の数字"}],
+  "proposals": [{"title": "アプリ改善提案の名前（1行）", "reason": "なぜ必要か（利用状況・摩擦・データを根拠に）", "instruction": "開発担当のClaude Codeにそのまま渡せる具体的な実装指示文"}]
 }
 
 learningsは「既に記録済みの学び」と重複しない新しい発見のみ。新発見がなければ空配列。
-actionsは抽象論ではなく、本人が明日実行できる粒度で書く。`;
+actionsは抽象論ではなく、本人が明日実行できる粒度で書く。
+proposalsは「コードを変えた方がフォロワー増加・記録の継続に効く」と判断した時だけ最大2件。
+既存機能とOPEN提案に重複しないこと。シンプルさ優先の制約を守り、価値が明確な時以外は空配列。
+instructionは機能名・画面・挙動を具体的に書く（開発者が読んでそのまま実装できる粒度）。`;
 
 function parseJson(text: string): Record<string, unknown> {
   const start = text.indexOf("{");
@@ -52,6 +56,19 @@ export async function POST() {
           .filter((l) => l.insight)
           .slice(0, 3)
       : [];
+    const proposals = Array.isArray(data.proposals)
+      ? data.proposals
+          .map((p: unknown) => {
+            const o = p as { title?: unknown; reason?: unknown; instruction?: unknown };
+            return {
+              title: String(o.title ?? "").trim(),
+              reason: String(o.reason ?? "").trim(),
+              instruction: String(o.instruction ?? "").trim(),
+            };
+          })
+          .filter((p) => p.title && p.instruction)
+          .slice(0, 2)
+      : [];
     if (!summary) throw new Error("コーチ応答が空でした");
 
     const db = getDb();
@@ -64,9 +81,20 @@ export async function POST() {
           "INSERT INTO learnings (insight, evidence) VALUES (?, ?)",
         ).run(l.insight, l.evidence);
       }
+      for (const p of proposals) {
+        db.prepare(
+          "INSERT INTO dev_proposals (title, reason, instruction) VALUES (?, ?, ?)",
+        ).run(p.title, p.reason, p.instruction);
+      }
     });
 
-    return NextResponse.json({ ok: true, summary, actions, new_learnings: learnings });
+    return NextResponse.json({
+      ok: true,
+      summary,
+      actions,
+      new_learnings: learnings,
+      new_proposals: proposals,
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "coach failed" },
