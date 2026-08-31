@@ -5,6 +5,7 @@ import { driveConfigured, driveConnected } from "@/lib/drive";
 import { BackupButton, ModelForm } from "./SettingsForm";
 import CaptureTools from "./CaptureTools";
 import DriveTools from "./DriveTools";
+import ReminderSettings from "./ReminderSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,11 @@ export default function SettingsPage() {
           pendingCount={pendingCount}
           failedCount={failedCount}
         />
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>毎日のリマインド</h2>
+        <ReminderSettings />
       </div>
 
       <div className="panel">

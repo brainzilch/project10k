@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ReminderWatcher from "@/components/ReminderWatcher";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default function RootLayout({
           ))}
         </nav>
         <main>{children}</main>
+        <ReminderWatcher />
       </body>
     </html>
   );
