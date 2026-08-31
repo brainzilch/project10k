@@ -76,24 +76,57 @@ export function reportDue(): { kind: ReportKind; milestone?: number } | null {
   return days >= 7 ? { kind: "WEEKLY" } : null;
 }
 
-const REPORT_SYSTEM = `あなたはPROJECT 10K（Xで1,458→10,000フォロワーへの365日公開挑戦）の本人として報告投稿を書く。
-本人は自作ツールCLIMBで挑戦を記録している個人開発者。誇張せず、実測の数字で語るのがスタイル。
+const REPORT_SYSTEM = `あなたはPROJECT 10K（1,458→10,000フォロワーへの365日公開挑戦）の本人として、Xの報告投稿を書く。
+
+最重要: 読者は本人のこともこの挑戦も知らない初見のXユーザー。書き上げたら「初見の人が3秒で状況を理解でき、続きを見たくなるか」で自己検証すること。
 
 ルール:
-- 一人称の本人の文体で書く。過去投稿の文体例があればそれに寄せる
-- 実データに無い数字・実績を作らない
-- 140字以内を基本とする（超えても200字まで）。改行は2回まで
-- 冒頭1行で数字か変化を見せる（スクロールを止めるのは具体的な数字）
-- AI臭のある定型句（「〜してみませんか」「いかがでしょうか」等）と絵文字の多用を避ける
-- ハッシュタグは最大1個（#PROJECT10K など）か無し
-- 進捗カード画像が添付される前提なので、本文はストーリーに集中する`;
+- 1行目だけで「何の挑戦で、いま何が起きているか」が分かること。企画名の説明より、状況が伝わる数字を1つ
+- 読者が知らない内輪の言葉を使わない。DRAFT・下書き・滞留・診断・バッジ・記録ツールの機能名などアプリの管理用語は全て禁止
+- 自作ツールの機能や開発の話を書かない。挑戦の道具の話は読者には雑音
+- 数字は本文に最大3つまで。数字の羅列は読まれない
+- 本人にしか書けない具体的な場面・失敗・気づきを1つだけ入れる。読者が自分の発信に持ち帰れるものが最強
+- 締めは次の一手の宣言で終える。フォロー・いいねのお願いはしない
+- 140字以内を基本（最大200字）。改行は2回まで。ハッシュタグは最大1個か無し
+- AI臭のある定型句（「〜してみませんか」等）と絵文字の多用を避け、過去投稿の文体例に寄せる
+- 実データに無い数字・実績を作らない`;
 
+// draft -> critique -> text: the schema's property order forces the model to
+// write a first version, tear it apart from a first-time reader's seat, and
+// only then produce the final text.
 const REPORT_SCHEMA = {
   type: "object",
-  properties: { text: { type: "string" } },
-  required: ["text"],
+  properties: {
+    draft: { type: "string", description: "第一稿" },
+    critique: {
+      type: "string",
+      description:
+        "第一稿への辛口セルフレビュー。初見の読者として『3秒で状況が分かるか』『内輪用語はないか』『読者が持ち帰れるものは何か』『続きを見たい理由があるか』を1行ずつ判定",
+    },
+    text: { type: "string", description: "レビューを反映した最終稿" },
+  },
+  required: ["draft", "critique", "text"],
   additionalProperties: false,
 } as const;
+
+// Words that only make sense inside CLIMB - a report carrying any of them
+// failed the reader-first rule, whatever else it got right.
+const BANNED_TERMS = [
+  "DRAFT",
+  "下書き",
+  "滞留",
+  "バッジ",
+  "AI診断",
+  "CLIMB",
+  "デプロイ",
+  "実装した機能",
+  "リポジトリ",
+];
+
+function bannedTermIn(text: string): string | null {
+  for (const t of BANNED_TERMS) if (text.includes(t)) return t;
+  return null;
+}
 
 function buildReportInput(kind: ReportKind, milestone?: number): string {
   const db = getDb();
@@ -136,12 +169,6 @@ function buildReportInput(kind: ReportKind, milestone?: number): string {
     likes: number | null;
   }[];
 
-  const shipped = db
-    .prepare(
-      "SELECT title FROM dev_proposals WHERE status = 'DONE' ORDER BY id DESC LIMIT 6",
-    )
-    .all() as { title: string }[];
-
   const lines: string[] = [];
   lines.push(
     kind === "MILESTONE"
@@ -160,14 +187,8 @@ function buildReportInput(kind: ReportKind, milestone?: number): string {
       lines.push(`- [${nums}] ${p.text.replace(/\s+/g, " ").slice(0, 100)}`);
     }
   }
-  if (shipped.length > 0) {
-    lines.push(
-      `\n最近CLIMBに実装した機能（アプリ内AI提案→本人採用で開発が進む仕組み）:`,
-    );
-    for (const s of shipped) lines.push(`- ${s.title}`);
-  }
   lines.push(
-    "\nこのデータから報告投稿を1本書いて。CLIMB(自作の記録・診断ツール)を育てながら挑戦している事実は、開発報告としてではなく挑戦のストーリーとして織り込む。",
+    "\nこのデータから報告投稿を1本書いて。全部を盛り込まず、初見の読者に一番刺さる1点だけを選ぶこと。数字が良くない週は、正直さと具体的な場面で読ませる。",
   );
   return lines.join("\n");
 }
@@ -176,15 +197,35 @@ async function generateReportText(
   kind: ReportKind,
   milestone?: number,
 ): Promise<string> {
-  const response = await getClient().messages.create({
-    model: getModel(),
-    max_tokens: 6000,
-    system: REPORT_SYSTEM + learningsPromptBlock(),
-    output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
-    messages: [{ role: "user", content: buildReportInput(kind, milestone) }],
-  });
-  const data = JSON.parse(textOf(response)) as { text: string };
-  return data.text.trim();
+  const input = buildReportInput(kind, milestone);
+  const messages: { role: "user" | "assistant"; content: string }[] = [
+    { role: "user", content: input },
+  ];
+  // one retry when the hard reader-first gate catches an in-app term
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await getClient().messages.create({
+      model: getModel(),
+      max_tokens: 8000,
+      system: REPORT_SYSTEM + learningsPromptBlock(),
+      output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
+      messages,
+    });
+    const raw = textOf(response);
+    const data = JSON.parse(raw) as { text: string };
+    const text = data.text.trim();
+    const banned = bannedTermIn(text);
+    if (!banned) return text;
+    messages.push(
+      { role: "assistant", content: raw },
+      {
+        role: "user",
+        content: `最終稿に禁止語「${banned}」が残っている。初見の読者が知らない内輪の言葉を全て外し、同じデータから書き直して。`,
+      },
+    );
+  }
+  throw new Error(
+    "読者向けの文面になりませんでした。もう一度「作り直す」を押してください。",
+  );
 }
 
 // 1200x675 progress card (X's 16:9 in-feed size), rendered with the bundled
@@ -222,7 +263,7 @@ function cardHtml(): string {
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(" ");
-    spark = `<svg width="520" height="160" viewBox="0 0 520 160">
+    spark = `<svg viewBox="0 0 520 160" style="width:100%;height:auto;display:block">
       <polyline points="${pts}" fill="none" stroke="#4da3ff" stroke-width="4" stroke-linecap="round"/>
     </svg>`;
   }
@@ -235,10 +276,11 @@ function cardHtml(): string {
   .label { color: #8b93a3; font-size: 26px; letter-spacing: 2px; }
   .head { display: flex; justify-content: space-between; align-items: baseline; }
   .day { font-size: 34px; color: #d29922; font-weight: 700; }
-  .main { flex: 1; display: flex; align-items: center; gap: 48px; margin-top: 8px; }
-  .num { font-size: 130px; font-weight: 800; line-height: 1.05; }
-  .num small { font-size: 40px; color: #8b93a3; font-weight: 400; }
-  .goal { font-size: 30px; color: #8b93a3; margin-top: 12px; }
+  .main { flex: 1; display: flex; align-items: center; gap: 40px; margin-top: 8px; }
+  .main > div:first-child { flex: 0 0 auto; }
+  .num { font-size: 110px; font-weight: 800; line-height: 1.05; white-space: nowrap; }
+  .num small { font-size: 36px; color: #8b93a3; font-weight: 400; }
+  .goal { font-size: 28px; color: #8b93a3; margin-top: 12px; white-space: nowrap; }
   .bar { width: 440px; height: 14px; background: #21262d; border-radius: 7px; margin-top: 20px; }
   .bar > div { height: 14px; background: #4da3ff; border-radius: 7px; width: ${pct.toFixed(1)}%; min-width: 6px; }
   .foot { display: flex; justify-content: space-between; color: #8b93a3; font-size: 26px; }
@@ -248,12 +290,12 @@ function cardHtml(): string {
     <div class="main">
       <div>
         <div class="num">${current.toLocaleString()}<small> フォロワー</small></div>
-        <div class="goal">${start.toLocaleString()} スタート → 目標 ${goal.toLocaleString()}（達成率 ${pct.toFixed(1)}%）</div>
+        <div class="goal">${start.toLocaleString()} スタート → 目標 ${goal.toLocaleString()}（あと ${(goal - current).toLocaleString()}人）</div>
         <div class="bar"><div></div></div>
       </div>
-      <div>${spark}</div>
+      <div style="flex: 1 1 auto; min-width: 0;">${spark}</div>
     </div>
-    <div class="foot"><div>@brainzilch</div><div>自作ツール CLIMB で記録中</div></div>
+    <div class="foot"><div>@brainzilch</div><div>365日、数字を全部さらして挑戦中</div></div>
   </body></html>`;
 }
 

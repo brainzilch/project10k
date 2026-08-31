@@ -35,6 +35,30 @@ export default function ReportPanel({ pending }: { pending: Pending }) {
     }
   }
 
+  // Discard the current draft and generate a fresh one in one tap.
+  async function regenerate() {
+    if (!pending) return;
+    setBusy(true);
+    setMsg("作り直し中…（20秒ほど）");
+    try {
+      const res = await fetch(`/api/posts/${pending.post_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discard: true }),
+      });
+      if (!res.ok) throw new Error("下書きの破棄に失敗しました");
+      const gen = await fetch("/api/report/generate", { method: "POST" });
+      const data = await gen.json();
+      if (!gen.ok) throw new Error(data.error ?? "生成に失敗しました");
+      setMsg("");
+      router.refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "作り直しに失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function share() {
     if (!pending) return;
     try {
@@ -110,8 +134,11 @@ export default function ReportPanel({ pending }: { pending: Pending }) {
         />
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-        <button onClick={share}>Xへ共有</button>
-        <button onClick={copyText}>本文コピー</button>
+        <button onClick={share} disabled={busy}>Xへ共有</button>
+        <button onClick={copyText} disabled={busy}>本文コピー</button>
+        <button onClick={regenerate} disabled={busy}>
+          {busy ? "生成中…" : "作り直す"}
+        </button>
         <a href="/posts" style={{ alignSelf: "center", fontSize: 14 }}>
           直したい/公開済みにする → 投稿一覧
         </a>
