@@ -8,6 +8,7 @@ import {
   saveChatImage,
   SUPPORTED_IMAGE_MIMES,
 } from "@/lib/attachments";
+import { learningsPromptBlock } from "@/lib/coach";
 
 const CHAT_SYSTEM = `あなたはPROJECT 10K（Xアカウント@brainzilchを365日で1,458→10,000フォロワーへ成長させる実証プロジェクト）の相談相手。
 本人が体験し、考え、書き、判断する。あなたは指摘・記録・整理・分析補助を担当する。簡潔に答える。`;
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
     const response = await getClient().messages.create({
       model,
       max_tokens: 16000,
-      system: CHAT_SYSTEM,
+      system: CHAT_SYSTEM + learningsPromptBlock(),
       messages: apiMessages,
     });
     const assistantText = textOf(response);

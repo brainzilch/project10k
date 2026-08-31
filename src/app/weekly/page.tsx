@@ -60,6 +60,11 @@ export default function WeeklyPage() {
   const timeLogs = db
     .prepare("SELECT date, category, minutes FROM time_logs")
     .all() as { date: string; category: string; minutes: number }[];
+  const learnings = db
+    .prepare(
+      "SELECT insight, evidence, created_at FROM learnings WHERE active = 1 ORDER BY id DESC",
+    )
+    .all() as { insight: string; evidence: string | null; created_at: string }[];
 
   // group everything by week (Monday start)
   const weekSet = new Set<string>();
@@ -171,6 +176,31 @@ export default function WeeklyPage() {
           <p className="muted" style={{ margin: 0 }}>
             直近30日分のデータが揃うと表示されます。
           </p>
+        )}
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>学びの蓄積</h2>
+        {learnings.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>
+            ホームの「アドバイスを更新」を実行すると、実測から得た学びがここに蓄積され、以後の診断・提案に反映されます。
+          </p>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 20 }}>
+            {learnings.map((l, i) => (
+              <li key={i} style={{ marginBottom: 4 }}>
+                {l.insight}
+                {l.evidence && (
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    　根拠: {l.evidence}
+                  </span>
+                )}
+                <span className="muted" style={{ fontSize: 12 }}>
+                  （{l.created_at.slice(0, 10)}）
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

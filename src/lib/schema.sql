@@ -145,6 +145,26 @@ CREATE TABLE IF NOT EXISTS post_metrics (
 );
 CREATE INDEX IF NOT EXISTS idx_post_metrics_post ON post_metrics(post_id);
 
+-- AI coach: periodic data-grounded analysis with concrete next actions.
+-- Append-only; the latest report is shown on the home screen.
+CREATE TABLE IF NOT EXISTS coach_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  summary TEXT NOT NULL,
+  actions TEXT NOT NULL, -- JSON array of action strings
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Learnings extracted from measured results. Injected into the diagnosis and
+-- chat prompts so advice improves as data accumulates - this is how the app
+-- "grows": data -> learnings -> better guidance.
+CREATE TABLE IF NOT EXISTS learnings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  insight TEXT NOT NULL,
+  evidence TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Manual time log for weekly review
 CREATE TABLE IF NOT EXISTS time_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,6 +1,8 @@
 // X post diagnosis prompts. Version them so posts record which prompt produced
 // their feedback (posts.prompt_version).
-export const PROMPT_VERSION = "v1";
+// v2: accumulated learnings from measured results are appended to the system
+// prompt (see lib/coach.ts learningsPromptBlock).
+export const PROMPT_VERSION = "v2";
 
 export const DIAGNOSIS_SYSTEM = `あなたはX(Twitter)投稿の診断者。ユーザー本人が書いた投稿原文を診断する。
 出力は次の5項目のみ。各項目は必ず1行以内。長文講評・総評・書き直し案は出力しない。

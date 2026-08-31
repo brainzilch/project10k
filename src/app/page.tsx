@@ -1,6 +1,7 @@
 import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
+import CoachPanel from "./CoachPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,23 @@ export default function Dashboard() {
 
   const current = latest?.followers ?? start;
   const remaining = Math.max(goal - current, 0);
+
+  const latestReport = getDb()
+    .prepare(
+      "SELECT summary, actions, created_at FROM coach_reports ORDER BY id DESC LIMIT 1",
+    )
+    .get() as { summary: string; actions: string; created_at: string } | undefined;
+  let reportActions: string[] = [];
+  try {
+    reportActions = latestReport ? JSON.parse(latestReport.actions) : [];
+  } catch {
+    reportActions = [];
+  }
+  const learningsCount = (
+    getDb()
+      .prepare("SELECT COUNT(*) AS n FROM learnings WHERE active = 1")
+      .get() as { n: number }
+  ).n;
 
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
@@ -57,6 +75,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      <CoachPanel
+        summary={latestReport?.summary ?? null}
+        actions={reportActions}
+        reportedAt={latestReport?.created_at ?? null}
+        learningsCount={learningsCount}
+      />
     </div>
   );
 }
