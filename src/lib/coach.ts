@@ -38,8 +38,10 @@ const APP_FEATURES = `CLIMBの現在の機能:
 - 週次: 週ごとカードの数字サマリー・30日ペース換算・学び一覧・時間簿
 - 設定: モデル設定・Drive接続/テスト/再送・スクショ収集・バックアップ3種・
   毎日のリマインド(時刻設定・未入力時のみ通知/バナー・入力済みならスキップ)
-- ホーム: 進捗指標+「数字未記録の公開投稿」件数カード(24時間経過分のみ・タップ展開で
-  行内インライン入力+スクショ読み取り)+AIコーチ(この分析)+アプリ改善提案
+- ホーム: 進捗指標+「今日の公開数/DRAFT滞留数」行+「数字未記録の公開投稿」件数カード
+  (24時間経過分のみ・タップ展開で行内インライン入力+スクショ読み取り)+AIコーチ(この分析)+アプリ改善提案
+- 投稿一覧: 24時間以上滞留DRAFTのバナー(タップで絞り込み)・DRAFT行に公開/破棄ボタン
+  (破棄は論理削除DISCARDED・Undoトースト付き)
 制約: 1人用/X API不使用/スマホ利用がメイン/シンプルさ優先(PROJECT 10K > 開発)
 注意: 上記に既にある機能・それに近い機能は提案しないこと`;
 
@@ -56,7 +58,7 @@ export function buildCoachContext(): string {
     .prepare(
       `SELECT p.id, p.post_type, p.origin, p.status, p.created_at,
               COALESCE(p.final_text, p.raw_text) AS text
-       FROM posts p ORDER BY p.id ASC`,
+       FROM posts p WHERE p.status != 'DISCARDED' ORDER BY p.id ASC`,
     )
     .all() as {
     id: number;

@@ -37,7 +37,7 @@ export default function WeeklyPage() {
     .all() as { date: string; followers: number }[];
   const posts = db
     .prepare(
-      "SELECT id, post_type, minimal_edit_used, final_text, created_at FROM posts",
+      "SELECT id, post_type, minimal_edit_used, final_text, created_at FROM posts WHERE status != 'DISCARDED'",
     )
     .all() as {
     id: number;

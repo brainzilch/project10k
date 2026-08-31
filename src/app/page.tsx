@@ -95,6 +95,24 @@ export default function Dashboard() {
       days: daysSince(row.published_at),
     }));
 
+  const publishedToday = (
+    getDb()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM posts
+         WHERE status = 'PUBLISHED'
+           AND date(published_at, '+9 hours') = date('now', '+9 hours')`,
+      )
+      .get() as { n: number }
+  ).n;
+  const staleDraftCount = (
+    getDb()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM posts
+         WHERE status = 'DRAFT' AND created_at <= datetime('now', '-1 day')`,
+      )
+      .get() as { n: number }
+  ).n;
+
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
   const elapsed = Math.floor(
@@ -125,6 +143,14 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      <p className="muted" style={{ margin: "4px 0 16px" }}>
+        今日の公開数 {publishedToday} ／ DRAFT滞留{" "}
+        {staleDraftCount > 0 ? (
+          <span style={{ color: "#d29922" }}>{staleDraftCount}件</span>
+        ) : (
+          "0件"
+        )}
+      </p>
       <AwaitingCard rows={awaitingRows} />
       <CoachPanel
         summary={latestReport?.summary ?? null}

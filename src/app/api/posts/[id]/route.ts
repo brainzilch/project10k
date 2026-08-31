@@ -42,5 +42,12 @@ export async function PATCH(
       "UPDATE posts SET status = ?, published_at = NULL WHERE id = ?",
     ).run(to, id);
   }
+  // Logical delete (hidden from the default list, data retained) and its undo
+  if (body.discard === true) {
+    db.prepare("UPDATE posts SET status = 'DISCARDED' WHERE id = ?").run(id);
+  }
+  if (body.restore === true) {
+    db.prepare("UPDATE posts SET status = 'DRAFT' WHERE id = ?").run(id);
+  }
   return NextResponse.json({ ok: true });
 }

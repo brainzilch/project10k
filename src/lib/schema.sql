@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS posts (
   final_text TEXT,
   minimal_edit_used INTEGER NOT NULL DEFAULT 0,
   prompt_version TEXT,
-  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'FINAL', 'PUBLISHED')),
+  status TEXT NOT NULL DEFAULT 'DRAFT'
+    CHECK (status IN ('DRAFT', 'FINAL', 'PUBLISHED', 'DISCARDED')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   published_at TEXT
 );

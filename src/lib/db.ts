@@ -47,6 +47,56 @@ function migrate(db: DatabaseSync) {
   if (!postColumns.some((c) => c.name === "origin")) {
     db.exec("ALTER TABLE posts ADD COLUMN origin TEXT NOT NULL DEFAULT 'CLIMB'");
   }
+
+  // The status CHECK is baked into the existing table; adding DISCARDED needs
+  // a table rebuild (SQLite 12-step). Explicit column lists on both sides -
+  // older DBs have `origin` appended last by the ALTER above, fresh DBs have
+  // it third.
+  const postsSql = (
+    db
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'posts'",
+      )
+      .get() as { sql: string } | undefined
+  )?.sql;
+  if (postsSql && !postsSql.includes("DISCARDED")) {
+    db.exec("PRAGMA foreign_keys = OFF");
+    db.exec("BEGIN");
+    try {
+      db.exec(`CREATE TABLE posts_migrated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id INTEGER REFERENCES sources(id),
+        origin TEXT NOT NULL DEFAULT 'CLIMB',
+        post_type TEXT NOT NULL DEFAULT 'PRIMARY' CHECK (post_type IN ('PRIMARY', 'CASUAL')),
+        raw_text TEXT NOT NULL,
+        ai_feedback TEXT,
+        ai_minimal_edit TEXT,
+        final_text TEXT,
+        minimal_edit_used INTEGER NOT NULL DEFAULT 0,
+        prompt_version TEXT,
+        status TEXT NOT NULL DEFAULT 'DRAFT'
+          CHECK (status IN ('DRAFT', 'FINAL', 'PUBLISHED', 'DISCARDED')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        published_at TEXT
+      )`);
+      db.exec(`INSERT INTO posts_migrated
+        (id, source_id, origin, post_type, raw_text, ai_feedback, ai_minimal_edit,
+         final_text, minimal_edit_used, prompt_version, status, created_at, published_at)
+        SELECT id, source_id, origin, post_type, raw_text, ai_feedback, ai_minimal_edit,
+         final_text, minimal_edit_used, prompt_version, status, created_at, published_at
+        FROM posts`);
+      db.exec("DROP TABLE posts");
+      db.exec("ALTER TABLE posts_migrated RENAME TO posts");
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      console.error(
+        `[climb] posts migration failed: ${e instanceof Error ? e.message : e}`,
+      );
+    } finally {
+      db.exec("PRAGMA foreign_keys = ON");
+    }
+  }
 }
 
 // Run fn inside a transaction; rolls back on any error.

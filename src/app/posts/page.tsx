@@ -4,6 +4,7 @@ import { postTypeLabel } from "@/lib/labels";
 import CopyButton from "@/components/CopyButton";
 import ImportMetricsForm from "./ImportMetricsForm";
 import MetricsForm from "./MetricsForm";
+import DraftActions from "./DraftActions";
 import PublishButton from "./PublishButton";
 import SwipeablePost from "./SwipeablePost";
 
@@ -42,10 +43,12 @@ export default async function PostsPage({
 }) {
   const { filter, record } = await searchParams;
   const unrecordedOnly = filter === "unrecorded";
+  const staleOnly = filter === "stale";
 
   const db = getDb();
+  // discarded posts are logically deleted - kept in the DB, hidden here
   const allPosts = db
-    .prepare("SELECT * FROM posts ORDER BY id DESC")
+    .prepare("SELECT * FROM posts WHERE status != 'DISCARDED' ORDER BY id DESC")
     .all() as Post[];
   const metrics = db
     .prepare("SELECT * FROM post_metrics ORDER BY measured_at ASC")
@@ -77,6 +80,11 @@ export default async function PostsPage({
 
   const isUnrecorded = (p: Post) =>
     p.status === "PUBLISHED" && (metricsByPost.get(p.id) ?? []).length === 0;
+  const isStaleDraft = (p: Post) =>
+    p.status === "DRAFT" &&
+    Date.now() - Date.parse(p.created_at.slice(0, 19).replace(" ", "T") + "Z") >=
+      24 * 60 * 60 * 1000;
+  const staleCount = allPosts.filter(isStaleDraft).length;
   const daysSince = (sqliteDateTime: string) =>
     Math.max(
       0,
@@ -87,7 +95,11 @@ export default async function PostsPage({
       ),
     );
   const unrecordedCount = allPosts.filter(isUnrecorded).length;
-  const posts = unrecordedOnly ? allPosts.filter(isUnrecorded) : allPosts;
+  const posts = unrecordedOnly
+    ? allPosts.filter(isUnrecorded)
+    : staleOnly
+      ? allPosts.filter(isStaleDraft)
+      : allPosts;
   const tagsByPost = new Map<number, string[]>();
   for (const t of tagRows) {
     const list = tagsByPost.get(t.post_id) ?? [];
@@ -112,6 +124,23 @@ export default async function PostsPage({
   return (
     <div>
       <h1>投稿一覧</h1>
+      {staleCount > 0 && !staleOnly && (
+        <Link href="/posts?filter=stale" style={{ display: "block" }}>
+          <div
+            className="panel"
+            style={{ borderColor: "#d29922", color: "#d29922", padding: "10px 16px" }}
+          >
+            DRAFT滞留 {staleCount}件：公開か破棄を決めよう →
+          </div>
+        </Link>
+      )}
+      {staleOnly && (
+        <div style={{ marginBottom: 12 }}>
+          <Link href="/posts">
+            <button className="secondary">✓ 滞留DRAFTのみ（解除）</button>
+          </Link>
+        </div>
+      )}
       <ImportMetricsForm />
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
         <Link href={unrecordedOnly ? "/posts" : "/posts?filter=unrecorded"}>
@@ -273,6 +302,7 @@ export default async function PostsPage({
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <MetricsForm postId={p.id} autoOpen={record === String(p.id)} />
             {p.status === "FINAL" && <PublishButton postId={p.id} />}
+            {p.status === "DRAFT" && <DraftActions postId={p.id} />}
           </div>
         </div>
         </SwipeablePost>
