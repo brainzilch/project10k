@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
+import AwaitingCard from "./AwaitingCard";
 import CoachPanel from "./CoachPanel";
 import ProposalsPanel from "./ProposalsPanel";
 
@@ -62,25 +62,38 @@ export default function Dashboard() {
     }[]
   ).map((r) => ({ ...r }));
 
-  // 数字待ち: published posts with no metrics yet, oldest publish first
-  const awaiting = getDb()
-    .prepare(
-      `SELECT p.id, COALESCE(p.final_text, p.raw_text) AS text,
-              COALESCE(p.published_at, p.created_at) AS published_at
-       FROM posts p
-       WHERE p.status = 'PUBLISHED'
-         AND NOT EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)
-       ORDER BY COALESCE(p.published_at, p.created_at) ASC`,
-    )
-    .all() as { id: number; text: string; published_at: string }[];
+  // 数字未記録: published 24h+ ago with no metrics yet, oldest first.
+  // Younger posts are excluded - X numbers need a day to settle.
+  const msDay = 24 * 60 * 60 * 1000;
   const daysSince = (s: string) =>
-    Math.max(
-      0,
-      Math.floor(
-        (Date.now() - Date.parse(s.slice(0, 10) + "T00:00:00Z")) /
-          (24 * 60 * 60 * 1000),
-      ),
-    );
+    Math.max(0, Math.floor((Date.now() - Date.parse(s.slice(0, 10) + "T00:00:00Z")) / msDay));
+  const awaitingRows = (
+    getDb()
+      .prepare(
+        `SELECT p.id, COALESCE(p.final_text, p.raw_text) AS text,
+                COALESCE(p.published_at, p.created_at) AS published_at
+         FROM posts p
+         WHERE p.status = 'PUBLISHED'
+           AND NOT EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)
+         ORDER BY COALESCE(p.published_at, p.created_at) ASC`,
+      )
+      .all() as { id: number; text: string; published_at: string }[]
+  )
+    .filter((row) => {
+      const t = Date.parse(
+        row.published_at.length > 10
+          ? row.published_at.slice(0, 19).replace(" ", "T") + "Z"
+          : row.published_at + "T00:00:00Z",
+      );
+      return Date.now() - t >= msDay;
+    })
+    .map((row) => ({
+      id: row.id,
+      excerpt:
+        row.text.replace(/\s+/g, " ").slice(0, 30) +
+        (row.text.length > 30 ? "…" : ""),
+      days: daysSince(row.published_at),
+    }));
 
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
@@ -112,50 +125,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      {awaiting.length > 0 && (
-        <div className="panel" style={{ borderColor: "#d29922" }}>
-          <h2 style={{ margin: 0 }}>
-            <Link href="/posts?filter=unrecorded" style={{ color: "#d29922" }}>
-              数字待ち（{awaiting.length}件）→
-            </Link>
-          </h2>
-          {awaiting.slice(0, 3).map((row) => (
-            <Link
-              key={row.id}
-              href={`/posts?record=${row.id}#post-${row.id}`}
-              style={{ display: "block", color: "inherit" }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  borderTop: "1px solid #2a2f3a",
-                  paddingTop: 8,
-                  marginTop: 8,
-                }}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {row.text.replace(/\s+/g, " ").slice(0, 30)}
-                  {row.text.length > 30 ? "…" : ""}
-                </span>
-                <span
-                  className={`badge ${daysSince(row.published_at) >= 3 ? "err" : "warn"}`}
-                  style={{ marginLeft: "auto", flexShrink: 0 }}
-                >
-                  {daysSince(row.published_at)}日経過
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      <AwaitingCard rows={awaitingRows} />
       <CoachPanel
         summary={latestReport?.summary ?? null}
         actions={reportActions}
