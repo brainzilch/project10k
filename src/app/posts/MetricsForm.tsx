@@ -13,9 +13,15 @@ const FIELDS = [
   ["follows", "フォロー"],
 ] as const;
 
-export default function MetricsForm({ postId }: { postId: number }) {
+export default function MetricsForm({
+  postId,
+  autoOpen = false,
+}: {
+  postId: number;
+  autoOpen?: boolean;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 

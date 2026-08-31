@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDb } from "@/lib/db";
 import { postTypeLabel } from "@/lib/labels";
 import CopyButton from "@/components/CopyButton";
@@ -33,9 +34,16 @@ type Metric = {
   follows: number | null;
 };
 
-export default function PostsPage() {
+export default async function PostsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string; record?: string }>;
+}) {
+  const { filter, record } = await searchParams;
+  const unrecordedOnly = filter === "unrecorded";
+
   const db = getDb();
-  const posts = db
+  const allPosts = db
     .prepare("SELECT * FROM posts ORDER BY id DESC")
     .all() as Post[];
   const metrics = db
@@ -65,6 +73,11 @@ export default function PostsPage() {
     list.push(m);
     metricsByPost.set(m.post_id, list);
   }
+
+  const isUnrecorded = (p: Post) =>
+    p.status === "PUBLISHED" && (metricsByPost.get(p.id) ?? []).length === 0;
+  const unrecordedCount = allPosts.filter(isUnrecorded).length;
+  const posts = unrecordedOnly ? allPosts.filter(isUnrecorded) : allPosts;
   const tagsByPost = new Map<number, string[]>();
   for (const t of tagRows) {
     const list = tagsByPost.get(t.post_id) ?? [];
@@ -90,9 +103,25 @@ export default function PostsPage() {
     <div>
       <h1>投稿一覧</h1>
       <ImportMetricsForm />
-      {posts.length === 0 && <p className="muted">まだ投稿がありません。</p>}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <Link href={unrecordedOnly ? "/posts" : "/posts?filter=unrecorded"}>
+          <button className="secondary">
+            {unrecordedOnly ? "✓ 未記録のみ（解除）" : "未記録のみ"}
+          </button>
+        </Link>
+        {unrecordedCount > 0 && (
+          <span className="muted" style={{ fontSize: 13 }}>
+            数字未記録の公開投稿 {unrecordedCount}件
+          </span>
+        )}
+      </div>
+      {posts.length === 0 && (
+        <p className="muted">
+          {unrecordedOnly ? "数字未記録の公開投稿はありません。" : "まだ投稿がありません。"}
+        </p>
+      )}
       {posts.map((p) => (
-        <div key={p.id} className="panel">
+        <div key={p.id} id={`post-${p.id}`} className="panel">
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <strong>#{p.id}</strong>
             {p.origin === "X_DIRECT" && <span className="badge warn">直接投稿(X)</span>}
@@ -107,6 +136,15 @@ export default function PostsPage() {
                   : "下書き"}
             </span>
             {p.minimal_edit_used === 1 && <span className="badge">minimal edit</span>}
+            {isUnrecorded(p) && (
+              <Link
+                href={`/posts?record=${p.id}${unrecordedOnly ? "&filter=unrecorded" : ""}#post-${p.id}`}
+              >
+                <span className="badge err" style={{ cursor: "pointer" }}>
+                  数字未記録
+                </span>
+              </Link>
+            )}
             {(tagsByPost.get(p.id) ?? []).map((t) => (
               <span key={t} className="badge">
                 {t}
@@ -217,7 +255,7 @@ export default function PostsPage() {
           )}
 
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <MetricsForm postId={p.id} />
+            <MetricsForm postId={p.id} autoOpen={record === String(p.id)} />
             {p.status === "FINAL" && <PublishButton postId={p.id} />}
           </div>
         </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
@@ -61,6 +62,16 @@ export default function Dashboard() {
     }[]
   ).map((r) => ({ ...r }));
 
+  const unrecordedCount = (
+    getDb()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM posts p
+         WHERE p.status = 'PUBLISHED'
+           AND NOT EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)`,
+      )
+      .get() as { n: number }
+  ).n;
+
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
   const elapsed = Math.floor(
@@ -91,6 +102,21 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {unrecordedCount > 0 && (
+        <Link href="/posts?filter=unrecorded" style={{ display: "block" }}>
+          <div
+            className="panel"
+            style={{
+              borderColor: "#d29922",
+              color: "#d29922",
+              padding: "10px 16px",
+              marginBottom: 16,
+            }}
+          >
+            数字未記録の公開投稿 {unrecordedCount}件 →
+          </div>
+        </Link>
+      )}
       <CoachPanel
         summary={latestReport?.summary ?? null}
         actions={reportActions}
