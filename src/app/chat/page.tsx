@@ -165,20 +165,39 @@ export default function ChatPage() {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
               }}
             />
-            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
               <input
                 ref={fileInput}
                 type="file"
                 accept="image/png,image/jpeg,image/gif,image/webp"
                 multiple
+                hidden
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
-              <button onClick={send} disabled={sending || (!text.trim() && files.length === 0)}>
+              <button className="secondary" onClick={() => fileInput.current?.click()}>
+                📷 画像{files.length > 0 ? `（${files.length}）` : ""}
+              </button>
+              {files.length > 0 && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setFiles([]);
+                    if (fileInput.current) fileInput.current.value = "";
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+              <button
+                onClick={send}
+                disabled={sending || (!text.trim() && files.length === 0)}
+                style={{ marginLeft: "auto" }}
+              >
                 {sending ? "送信中..." : "送信"}
               </button>
             </div>
             {files.length > 0 && (
-              <p className="muted" style={{ marginBottom: 0 }}>
+              <p className="muted" style={{ marginBottom: 0, fontSize: 13 }}>
                 添付: {files.map((f) => f.name).join(", ")}
               </p>
             )}
