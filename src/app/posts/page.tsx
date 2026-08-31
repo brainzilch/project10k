@@ -5,6 +5,7 @@ import CopyButton from "@/components/CopyButton";
 import ImportMetricsForm from "./ImportMetricsForm";
 import MetricsForm from "./MetricsForm";
 import PublishButton from "./PublishButton";
+import SwipeablePost from "./SwipeablePost";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,15 @@ export default async function PostsPage({
 
   const isUnrecorded = (p: Post) =>
     p.status === "PUBLISHED" && (metricsByPost.get(p.id) ?? []).length === 0;
+  const daysSince = (sqliteDateTime: string) =>
+    Math.max(
+      0,
+      Math.floor(
+        (Date.now() -
+          Date.parse(sqliteDateTime.slice(0, 19).replace(" ", "T") + "Z")) /
+          (24 * 60 * 60 * 1000),
+      ),
+    );
   const unrecordedCount = allPosts.filter(isUnrecorded).length;
   const posts = unrecordedOnly ? allPosts.filter(isUnrecorded) : allPosts;
   const tagsByPost = new Map<number, string[]>();
@@ -121,7 +131,8 @@ export default async function PostsPage({
         </p>
       )}
       {posts.map((p) => (
-        <div key={p.id} id={`post-${p.id}`} className="panel">
+        <SwipeablePost key={p.id} postId={p.id} swipeEnabled={p.status === "DRAFT"}>
+        <div id={`post-${p.id}`} className="panel">
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <strong>#{p.id}</strong>
             {p.origin === "X_DIRECT" && <span className="badge warn">直接投稿(X)</span>}
@@ -153,6 +164,11 @@ export default async function PostsPage({
             <span className="muted" style={{ marginLeft: "auto", fontSize: 13 }}>
               {p.created_at}
             </span>
+            {p.status === "DRAFT" && (
+              <span className={`badge ${daysSince(p.created_at) >= 3 ? "err" : ""}`}>
+                {daysSince(p.created_at)}日滞留
+              </span>
+            )}
           </div>
 
           {(() => {
@@ -259,6 +275,7 @@ export default async function PostsPage({
             {p.status === "FINAL" && <PublishButton postId={p.id} />}
           </div>
         </div>
+        </SwipeablePost>
       ))}
     </div>
   );

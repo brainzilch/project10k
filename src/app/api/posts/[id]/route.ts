@@ -34,5 +34,13 @@ export async function PATCH(
        WHERE id = ?`,
     ).run(id);
   }
+  // Undo for swipe-publish: revert to the pre-publish status (no confirm
+  // dialog in the UI, so the undo path is the safety net)
+  if (body.unpublish === true) {
+    const to = body.to === "FINAL" ? "FINAL" : "DRAFT";
+    db.prepare(
+      "UPDATE posts SET status = ?, published_at = NULL WHERE id = ?",
+    ).run(to, id);
+  }
   return NextResponse.json({ ok: true });
 }

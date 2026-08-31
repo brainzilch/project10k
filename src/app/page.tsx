@@ -62,15 +62,25 @@ export default function Dashboard() {
     }[]
   ).map((r) => ({ ...r }));
 
-  const unrecordedCount = (
-    getDb()
-      .prepare(
-        `SELECT COUNT(*) AS n FROM posts p
-         WHERE p.status = 'PUBLISHED'
-           AND NOT EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)`,
-      )
-      .get() as { n: number }
-  ).n;
+  // 数字待ち: published posts with no metrics yet, oldest publish first
+  const awaiting = getDb()
+    .prepare(
+      `SELECT p.id, COALESCE(p.final_text, p.raw_text) AS text,
+              COALESCE(p.published_at, p.created_at) AS published_at
+       FROM posts p
+       WHERE p.status = 'PUBLISHED'
+         AND NOT EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)
+       ORDER BY COALESCE(p.published_at, p.created_at) ASC`,
+    )
+    .all() as { id: number; text: string; published_at: string }[];
+  const daysSince = (s: string) =>
+    Math.max(
+      0,
+      Math.floor(
+        (Date.now() - Date.parse(s.slice(0, 10) + "T00:00:00Z")) /
+          (24 * 60 * 60 * 1000),
+      ),
+    );
 
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
@@ -102,20 +112,49 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      {unrecordedCount > 0 && (
-        <Link href="/posts?filter=unrecorded" style={{ display: "block" }}>
-          <div
-            className="panel"
-            style={{
-              borderColor: "#d29922",
-              color: "#d29922",
-              padding: "10px 16px",
-              marginBottom: 16,
-            }}
-          >
-            数字未記録の公開投稿 {unrecordedCount}件 →
-          </div>
-        </Link>
+      {awaiting.length > 0 && (
+        <div className="panel" style={{ borderColor: "#d29922" }}>
+          <h2 style={{ margin: 0 }}>
+            <Link href="/posts?filter=unrecorded" style={{ color: "#d29922" }}>
+              数字待ち（{awaiting.length}件）→
+            </Link>
+          </h2>
+          {awaiting.slice(0, 3).map((row) => (
+            <Link
+              key={row.id}
+              href={`/posts?record=${row.id}#post-${row.id}`}
+              style={{ display: "block", color: "inherit" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  borderTop: "1px solid #2a2f3a",
+                  paddingTop: 8,
+                  marginTop: 8,
+                }}
+              >
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {row.text.replace(/\s+/g, " ").slice(0, 30)}
+                  {row.text.length > 30 ? "…" : ""}
+                </span>
+                <span
+                  className={`badge ${daysSince(row.published_at) >= 3 ? "err" : "warn"}`}
+                  style={{ marginLeft: "auto", flexShrink: 0 }}
+                >
+                  {daysSince(row.published_at)}日経過
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
       <CoachPanel
         summary={latestReport?.summary ?? null}
