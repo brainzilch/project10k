@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
       const response = await client.messages.create({
         model,
-        max_tokens: 1024,
+        max_tokens: 6000,
         system: EXTRACT_SYSTEM,
         messages: [
           {

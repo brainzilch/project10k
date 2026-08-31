@@ -38,7 +38,7 @@ export async function POST(
 
     const diagnosisResponse = await client.messages.create({
       model,
-      max_tokens: 1024,
+      max_tokens: 6000,
       system: DIAGNOSIS_SYSTEM + learningsPromptBlock(),
       messages: [
         {
@@ -51,7 +51,7 @@ export async function POST(
 
     const editResponse = await client.messages.create({
       model,
-      max_tokens: 1024,
+      max_tokens: 6000,
       system: MINIMAL_EDIT_SYSTEM,
       messages: [{ role: "user", content: text }],
     });

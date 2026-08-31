@@ -55,7 +55,9 @@ export async function POST() {
     const context = buildCoachContext();
     const response = await getClient().messages.create({
       model: getModel(),
-      max_tokens: 2048,
+      // adaptive thinking shares this budget - keep generous headroom so the
+      // JSON is never truncated mid-string
+      max_tokens: 12000,
       system: COACH_SYSTEM,
       output_config: { format: { type: "json_schema", schema: COACH_SCHEMA } },
       messages: [{ role: "user", content: context }],

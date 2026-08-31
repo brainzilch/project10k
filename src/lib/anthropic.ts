@@ -18,11 +18,18 @@ export function getClient(): Anthropic {
   return new Anthropic();
 }
 
-// Returns the concatenated text of a response, or throws on refusal.
+// Returns the concatenated text of a response; throws on refusal and on
+// max_tokens truncation (a cut-off response must never be parsed or saved
+// as if it were complete).
 export function textOf(response: Anthropic.Message): string {
   if (response.stop_reason === "refusal") {
     throw new Error(
       `Claude declined this request${response.stop_details?.explanation ? `: ${response.stop_details.explanation}` : "."}`,
+    );
+  }
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      "応答が長すぎて途中で切れました。もう一度実行してください（続く場合は開発チャットへ報告を）",
     );
   }
   return response.content
