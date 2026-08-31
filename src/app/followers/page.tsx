@@ -37,16 +37,22 @@ export default function FollowersPage() {
     .all() as { date: string; followers: number }[];
   const today = jstToday();
   const streak = currentStreak(new Set(rows.map((r) => r.date)));
+  const profileChangeDates = (
+    getDb()
+      .prepare("SELECT DISTINCT applied_on FROM profile_revisions ORDER BY applied_on")
+      .all() as { applied_on: string }[]
+  ).map((r) => r.applied_on);
 
   return (
     <div>
       <h1>フォロワー記録</h1>
       <p className="muted" style={{ marginTop: -8 }}>
         連続記録 {streak}日
+        {profileChangeDates.length > 0 && "　／　黄点線=プロフィール変更日"}
       </p>
       <FollowerForm today={today} />
       <div className="panel">
-        <FollowerChart data={rows} />
+        <FollowerChart data={rows} markers={profileChangeDates} />
       </div>
       <div className="panel">
         <table>

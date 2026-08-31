@@ -178,6 +178,19 @@ CREATE TABLE IF NOT EXISTS dev_proposals (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- X profile (name/bio) history. Append-only like post_revisions - each save
+-- records the date the wording went live (applied_on, JST) so the follower
+-- graph can mark before/after.
+CREATE TABLE IF NOT EXISTS profile_revisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  bio TEXT NOT NULL,
+  ai_feedback TEXT,
+  ai_edit TEXT,
+  applied_on TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Manual time log for weekly review
 CREATE TABLE IF NOT EXISTS time_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -43,6 +43,14 @@ export default function SettingsPage() {
       <h1>設定</h1>
 
       <div className="panel">
+        <h2 style={{ marginTop: 0 }}>プロフィール</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          <a href="/profile">名前とbioの診断・変更履歴 →</a>
+          　変更日はフォロワーグラフに点線で表示される
+        </p>
+      </div>
+
+      <div className="panel">
         <h2 style={{ marginTop: 0 }}>Anthropic API</h2>
         <p>
           APIキー:{" "}
