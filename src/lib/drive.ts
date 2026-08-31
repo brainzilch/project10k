@@ -221,19 +221,21 @@ export async function uploadBufferToDrive(
   return res.json();
 }
 
+// Never throws - a rejection escaping a background task would crash the whole
+// Node process (default unhandled-rejection behavior).
 export async function uploadAssetToDrive(assetId: number): Promise<boolean> {
-  const db = getDb();
-  const asset = db.prepare("SELECT * FROM assets WHERE id = ?").get(assetId) as
-    | {
-        id: number;
-        source: string;
-        stored_filename: string;
-        mime_type: string;
-        local_path: string;
-      }
-    | undefined;
-  if (!asset) return false;
   try {
+    const db = getDb();
+    const asset = db.prepare("SELECT * FROM assets WHERE id = ?").get(assetId) as
+      | {
+          id: number;
+          source: string;
+          stored_filename: string;
+          mime_type: string;
+          local_path: string;
+        }
+      | undefined;
+    if (!asset) return false;
     const folderId = getDriveFolders()[FOLDER_BY_SOURCE[asset.source] ?? "ARCHIVE"];
     if (!folderId) throw new Error("Drive folders not initialized");
     const buffer = fs.readFileSync(asset.local_path);
@@ -249,13 +251,17 @@ export async function uploadAssetToDrive(assetId: number): Promise<boolean> {
     ).run(result.id, result.webViewLink ?? "", folderId, assetId);
     return true;
   } catch (e) {
-    db.prepare("UPDATE assets SET upload_status = 'DRIVE_FAILED' WHERE id = ?").run(
-      assetId,
-    );
     // message only - never log tokens or request bodies
     console.error(
       `Drive upload failed for asset ${assetId}: ${e instanceof Error ? e.message : "unknown"}`,
     );
+    try {
+      getDb()
+        .prepare("UPDATE assets SET upload_status = 'DRIVE_FAILED' WHERE id = ?")
+        .run(assetId);
+    } catch {
+      // even the status write must not take down the process
+    }
     return false;
   }
 }
@@ -294,6 +300,12 @@ export function retryPendingUploads(): number {
   setImmediate(async () => {
     try {
       for (const row of rows) await uploadAssetToDrive(row.id);
+    } catch (e) {
+      // uploadAssetToDrive never throws, but a rejection escaping here would
+      // crash the process - keep the belt and suspenders
+      console.error(
+        `Drive retry loop failed: ${e instanceof Error ? e.message : "unknown"}`,
+      );
     } finally {
       retryRunning = false;
     }
