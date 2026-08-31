@@ -46,6 +46,18 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
+
+  // Optional: attach to a specific post (per-post スクショから入力) -
+  // skips text matching entirely.
+  const fixedPostIdRaw = form.get("post_id");
+  let fixedPostId: number | null = null;
+  if (fixedPostIdRaw) {
+    fixedPostId = Number(fixedPostIdRaw);
+    const exists = db.prepare("SELECT id FROM posts WHERE id = ?").get(fixedPostId);
+    if (!exists) {
+      return NextResponse.json({ error: "post not found" }, { status: 404 });
+    }
+  }
   let model: string;
   let client: ReturnType<typeof getClient>;
   try {
@@ -106,20 +118,6 @@ export async function POST(req: NextRequest) {
       const extracted = parseJson(textOf(response));
 
       const postText = String(extracted.post_text ?? "").trim();
-      const key = normalizeText(postText).slice(0, 20);
-      if (key.length < 6) {
-        throw new Error("投稿本文を読み取れませんでした（本文が写る形で撮り直してください）");
-      }
-
-      // 既存投稿と本文で照合
-      const candidates = db
-        .prepare("SELECT id, raw_text, final_text FROM posts ORDER BY id DESC")
-        .all() as { id: number; raw_text: string; final_text: string | null }[];
-      const match = candidates.find(
-        (p) =>
-          normalizeText(p.raw_text).includes(key) ||
-          (p.final_text && normalizeText(p.final_text).includes(key)),
-      );
 
       const metrics = {
         impressions: toNumber(extracted.impressions),
@@ -150,6 +148,32 @@ export async function POST(req: NextRequest) {
           );
 
       const summary = `Imp ${metrics.impressions ?? "-"} / Like ${metrics.likes ?? "-"} / RP ${metrics.reposts ?? "-"}`;
+
+      // 対象投稿が指定されている場合は照合せず直接追記
+      if (fixedPostId !== null) {
+        insertMetrics(fixedPostId);
+        results.push({
+          filename: file.name,
+          status: "appended",
+          post_id: fixedPostId,
+          detail: `#${fixedPostId} にメトリクス追記（${summary}）`,
+        });
+        continue;
+      }
+
+      // 一括取り込み: 本文で既存投稿と照合
+      const key = normalizeText(postText).slice(0, 20);
+      if (key.length < 6) {
+        throw new Error("投稿本文を読み取れませんでした（本文が写る形で撮り直してください）");
+      }
+      const candidates = db
+        .prepare("SELECT id, raw_text, final_text FROM posts ORDER BY id DESC")
+        .all() as { id: number; raw_text: string; final_text: string | null }[];
+      const match = candidates.find(
+        (p) =>
+          normalizeText(p.raw_text).includes(key) ||
+          (p.final_text && normalizeText(p.final_text).includes(key)),
+      );
 
       if (match) {
         insertMetrics(match.id);
