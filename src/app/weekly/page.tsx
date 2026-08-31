@@ -128,40 +128,39 @@ export default function WeeklyPage() {
   return (
     <div>
       <h1>週次サマリー</h1>
-      <div className="panel" style={{ overflowX: "auto" }}>
-        <table>
-          <thead>
-            <tr>
-              <th>週</th>
-              <th>週初</th>
-              <th>週末</th>
-              <th>増減</th>
-              <th>本気投稿</th>
-              <th>気軽な投稿</th>
-              <th>本気投稿日数</th>
-              <th>AI案使用率</th>
-              <th>インプ合計</th>
-              <th>時間(分)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.weekStart}>
-                <td>{r.weekStart}</td>
-                <td>{r.followersStart?.toLocaleString() ?? "-"}</td>
-                <td>{r.followersEnd?.toLocaleString() ?? "-"}</td>
-                <td>{r.netGrowth !== null ? (r.netGrowth >= 0 ? `+${r.netGrowth}` : r.netGrowth) : "-"}</td>
-                <td>{r.primaryCount}</td>
-                <td>{r.casualCount}</td>
-                <td>{r.primaryDays} / 7</td>
-                <td>{r.minimalEditRate}</td>
-                <td>{r.impressions > 0 ? r.impressions.toLocaleString() : "-"}</td>
-                <td>{weekTimeTotals.get(r.weekStart) ?? "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {rows.map((r) => {
+        const pairs: [string, string][] = [
+          ["週初", r.followersStart?.toLocaleString() ?? "-"],
+          ["週末", r.followersEnd?.toLocaleString() ?? "-"],
+          [
+            "増減",
+            r.netGrowth !== null
+              ? r.netGrowth >= 0
+                ? `+${r.netGrowth}`
+                : String(r.netGrowth)
+              : "-",
+          ],
+          ["本気投稿", String(r.primaryCount)],
+          ["気軽な投稿", String(r.casualCount)],
+          ["本気投稿日数", `${r.primaryDays} / 7`],
+          ["AI案使用率", r.minimalEditRate],
+          ["インプ合計", r.impressions > 0 ? r.impressions.toLocaleString() : "-"],
+          ["時間(分)", String(weekTimeTotals.get(r.weekStart) ?? "-")],
+        ];
+        return (
+          <div key={r.weekStart} className="panel">
+            <h2 style={{ marginTop: 0 }}>{r.weekStart} の週</h2>
+            <div className="stat-pairs">
+              {pairs.map(([label, value]) => (
+                <div key={label}>
+                  <div className="pair-label">{label}</div>
+                  <div className="pair-value">{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>現在ペース換算</h2>

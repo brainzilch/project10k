@@ -96,6 +96,23 @@ h2 {
   gap: 12px;
 }
 
+/* compact label/value pairs (weekly summary cards) */
+.stat-pairs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px 12px;
+}
+
+.pair-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pair-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -107,6 +124,8 @@ td {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
+  /* CJK labels wrap per-character when squeezed - scroll inside the panel instead */
+  white-space: nowrap;
 }
 
 th {
