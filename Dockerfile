@@ -19,4 +19,7 @@ ENV NODE_ENV=production
 ENV CLIMB_DATA_DIR=/data
 
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+# Run next directly (not via npm) so SIGTERM from the platform reaches the
+# server and it shuts down cleanly on redeploys - npm as PID 1 does not
+# forward signals, which makes every redeploy look like a crash.
+CMD ["node", "node_modules/next/dist/bin/next", "start"]
