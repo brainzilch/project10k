@@ -181,6 +181,17 @@ CREATE TABLE IF NOT EXISTS dev_proposals (
 -- X profile (name/bio) history. Append-only like post_revisions - each save
 -- records the date the wording went live (applied_on, JST) so the follower
 -- graph can mark before/after.
+-- Auto-generated PROJECT 10K report posts (weekly + milestone). Links the
+-- generated draft post to its progress-card image asset.
+CREATE TABLE IF NOT EXISTS report_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL REFERENCES posts(id),
+  kind TEXT NOT NULL CHECK (kind IN ('WEEKLY', 'MILESTONE')),
+  milestone INTEGER,
+  card_asset_id INTEGER REFERENCES assets(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS profile_revisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

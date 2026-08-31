@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chromium, Browser } from "playwright-core";
+import { Browser } from "playwright-core";
+import { launchBrowser } from "@/lib/browser";
 import { saveAssetFile, timestampParts } from "@/lib/attachments";
 
 // Self-capture: CLIMB screenshots its own screens headlessly and registers
@@ -13,36 +14,6 @@ const PAGES: [string, string][] = [
   ["weekly", "/weekly"],
   ["settings", "/settings"],
 ];
-
-// Uses an installed Chrome/Edge (playwright-core ships no browser binary).
-async function launchBrowser(): Promise<Browser> {
-  const candidates: {
-    executablePath?: string;
-    channel?: string;
-    args?: string[];
-  }[] = [];
-  if (process.env.CLIMB_CHROME_PATH) {
-    // explicit path implies a container/server context, where Chromium's
-    // sandbox is typically unavailable; the only pages visited are CLIMB's own
-    candidates.push({
-      executablePath: process.env.CLIMB_CHROME_PATH,
-      args: ["--no-sandbox"],
-    });
-  }
-  candidates.push({ channel: "chrome" }, { channel: "msedge" });
-
-  let lastError: unknown;
-  for (const c of candidates) {
-    try {
-      return await chromium.launch({ headless: true, ...c });
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw new Error(
-    `Chrome/Edgeが見つかりません。どちらかをインストールするか、環境変数 CLIMB_CHROME_PATH にブラウザ実行ファイルのパスを設定してください。(${lastError instanceof Error ? lastError.message.split("\n")[0] : "launch failed"})`,
-  );
-}
 
 export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin;

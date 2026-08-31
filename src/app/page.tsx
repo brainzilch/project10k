@@ -1,9 +1,11 @@
 import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
+import { pendingReport } from "@/lib/report";
 import AwaitingCard from "./AwaitingCard";
 import CoachPanel from "./CoachPanel";
 import ProposalsPanel from "./ProposalsPanel";
+import ReportPanel from "./ReportPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +153,7 @@ export default function Dashboard() {
           "0件"
         )}
       </p>
+      <ReportPanel pending={pendingReport()} />
       <AwaitingCard rows={awaitingRows} />
       <CoachPanel
         summary={latestReport?.summary ?? null}

@@ -1,17 +1,37 @@
-// Runs at server boot (Next.js instrumentation hook). Also invoked in the
-// edge runtime for middleware, where process.on does not exist - register the
-// handlers only in the Node.js runtime.
+// Runs at server boot (Next.js instrumentation hook). Also compiled for the
+// edge runtime (middleware), where process.on and node modules do not exist -
+// everything below lives inside a NEXT_RUNTIME === "nodejs" branch so the
+// bundler drops it (and the report import) from the edge build entirely.
 // A single-user always-on app should log-and-survive rather than crash-loop:
 // Node's default kills the process on any unhandled rejection, which turns a
 // stray background error into full downtime on Railway.
-export function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  process.on("unhandledRejection", (reason) => {
-    console.error(
-      `[climb] unhandled rejection: ${reason instanceof Error ? reason.stack : String(reason)}`,
-    );
-  });
-  process.on("uncaughtException", (error) => {
-    console.error(`[climb] uncaught exception: ${error.stack ?? error.message}`);
-  });
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    process.on("unhandledRejection", (reason) => {
+      console.error(
+        `[climb] unhandled rejection: ${reason instanceof Error ? reason.stack : String(reason)}`,
+      );
+    });
+    process.on("uncaughtException", (error) => {
+      console.error(`[climb] uncaught exception: ${error.stack ?? error.message}`);
+    });
+
+    // Report scheduler: every 15 minutes check whether a PROJECT 10K report
+    // draft is due (weekly / milestone, generated in the 20:00 JST hour).
+    // Guarded against double registration across hot reloads.
+    const g = globalThis as {
+      __climbReportTimer?: ReturnType<typeof setInterval>;
+    };
+    if (!g.__climbReportTimer) {
+      g.__climbReportTimer = setInterval(() => {
+        import("./lib/report")
+          .then((m) => m.autoReportTick())
+          .catch((e) =>
+            console.error(
+              `[climb] report tick failed: ${e instanceof Error ? e.message : e}`,
+            ),
+          );
+      }, 15 * 60 * 1000);
+    }
+  }
 }
