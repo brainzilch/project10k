@@ -28,6 +28,11 @@ export async function PATCH(
       ).run(id, next, body.final_text);
     });
   }
+  // Free-text theme label for per-theme performance stats. Empty clears it.
+  if (typeof body.theme === "string") {
+    const theme = body.theme.trim().slice(0, 50);
+    db.prepare("UPDATE posts SET theme = ? WHERE id = ?").run(theme || null, id);
+  }
   if (body.published === true) {
     db.prepare(
       `UPDATE posts SET status = 'PUBLISHED', published_at = datetime('now')

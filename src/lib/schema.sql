@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS posts (
   status TEXT NOT NULL DEFAULT 'DRAFT'
     CHECK (status IN ('DRAFT', 'FINAL', 'PUBLISHED', 'DISCARDED')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  published_at TEXT
+  published_at TEXT,
+  theme TEXT
 );
 
 -- Every drafting stage of a post, in order: the rewriting process itself is

@@ -97,6 +97,15 @@ function migrate(db: DatabaseSync) {
       db.exec("PRAGMA foreign_keys = ON");
     }
   }
+
+  // theme came after the DISCARDED rebuild - re-read columns in case the
+  // rebuild above just replaced the table.
+  const postColumnsAfter = db.prepare("PRAGMA table_info(posts)").all() as {
+    name: string;
+  }[];
+  if (!postColumnsAfter.some((c) => c.name === "theme")) {
+    db.exec("ALTER TABLE posts ADD COLUMN theme TEXT");
+  }
 }
 
 // Run fn inside a transaction; rolls back on any error.

@@ -7,6 +7,7 @@ import MetricsForm from "./MetricsForm";
 import DraftActions from "./DraftActions";
 import PublishButton from "./PublishButton";
 import SwipeablePost from "./SwipeablePost";
+import ThemeEditor from "./ThemeEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ type Post = {
   status: string;
   created_at: string;
   published_at: string | null;
+  theme: string | null;
 };
 
 type Metric = {
@@ -58,6 +60,14 @@ export default async function PostsPage({
       `SELECT pt.post_id, t.name FROM post_tags pt JOIN tags t ON t.id = pt.tag_id`,
     )
     .all() as { post_id: number; name: string }[];
+  const themeSuggestions = (
+    db
+      .prepare(
+        `SELECT DISTINCT theme FROM posts
+         WHERE theme IS NOT NULL AND theme != '' ORDER BY theme`,
+      )
+      .all() as { theme: string }[]
+  ).map((r) => r.theme);
   const revisionRows = db
     .prepare(
       "SELECT post_id, revision, kind, text, ai_feedback, created_at FROM post_revisions ORDER BY post_id, revision ASC",
@@ -190,6 +200,11 @@ export default async function PostsPage({
                 {t}
               </span>
             ))}
+            <ThemeEditor
+              postId={p.id}
+              theme={p.theme}
+              suggestions={themeSuggestions}
+            />
             <span className="muted" style={{ marginLeft: "auto", fontSize: 13 }}>
               {p.created_at}
             </span>

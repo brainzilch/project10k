@@ -66,6 +66,54 @@ export default function WeeklyPage() {
     )
     .all() as { insight: string; evidence: string | null; created_at: string }[];
 
+  // テーマ別成績: published posts with a theme, latest measurement per post.
+  // Posts without any recorded metrics are excluded from the averages and
+  // surfaced as an unrecorded count instead.
+  const themedPosts = db
+    .prepare(
+      `SELECT p.theme, pm.impressions, pm.likes, pm.profile_visits,
+              CASE WHEN pm.post_id IS NULL THEN 0 ELSE 1 END AS recorded
+       FROM posts p
+       LEFT JOIN (
+         SELECT pm.* FROM post_metrics pm
+         JOIN (SELECT post_id, MAX(measured_at) AS m FROM post_metrics GROUP BY post_id) x
+           ON x.post_id = pm.post_id AND x.m = pm.measured_at
+       ) pm ON pm.post_id = p.id
+       WHERE p.status = 'PUBLISHED' AND p.theme IS NOT NULL AND p.theme != ''`,
+    )
+    .all() as {
+    theme: string;
+    impressions: number | null;
+    likes: number | null;
+    profile_visits: number | null;
+    recorded: number;
+  }[];
+  const themeStats = (() => {
+    const byTheme = new Map<string, typeof themedPosts>();
+    for (const p of themedPosts) {
+      const list = byTheme.get(p.theme) ?? [];
+      list.push(p);
+      byTheme.set(p.theme, list);
+    }
+    const avg = (xs: number[]) =>
+      xs.length === 0
+        ? null
+        : Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+    return [...byTheme.entries()]
+      .map(([theme, list]) => {
+        const recorded = list.filter((p) => p.recorded === 1);
+        return {
+          theme,
+          count: list.length,
+          unrecorded: list.length - recorded.length,
+          avgImpressions: avg(recorded.map((p) => p.impressions ?? 0)),
+          avgLikes: avg(recorded.map((p) => p.likes ?? 0)),
+          avgProfileVisits: avg(recorded.map((p) => p.profile_visits ?? 0)),
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+  })();
+
   // group everything by week (Monday start)
   const weekSet = new Set<string>();
   for (const f of followers) weekSet.add(mondayOf(f.date));
@@ -206,6 +254,45 @@ export default function WeeklyPage() {
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>時間簿</h2>
         <TimeLogForm today={today} />
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>テーマ別成績</h2>
+        {themeStats.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>
+            投稿一覧で各投稿に「＋テーマ」を付けると、どのテーマが伸びるかがここに集計されます。
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>テーマ</th>
+                <th>公開本数</th>
+                <th>平均インプ</th>
+                <th>平均いいね</th>
+                <th>平均プロフ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {themeStats.map((t) => (
+                <tr key={t.theme}>
+                  <td>{t.theme}</td>
+                  <td>
+                    {t.count}
+                    {t.unrecorded > 0 && (
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        （未記録{t.unrecorded}件）
+                      </span>
+                    )}
+                  </td>
+                  <td>{t.avgImpressions?.toLocaleString() ?? "-"}</td>
+                  <td>{t.avgLikes?.toLocaleString() ?? "-"}</td>
+                  <td>{t.avgProfileVisits?.toLocaleString() ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

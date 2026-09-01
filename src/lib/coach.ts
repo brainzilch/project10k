@@ -35,7 +35,8 @@ const APP_FEATURES = `CLIMBの現在の機能:
   一括アナリティクス取り込み(直接投稿の自動登録含む)・「数字未記録」赤バッジと未記録のみフィルタ・
   下書きの「N日滞留」バッジ(3日で赤)・下書き左スワイプで即公開(Undoトースト付き)
 - フォロワー: 日次手入力+折れ線グラフ+連続記録N日表示
-- 週次: 週ごとカードの数字サマリー・30日ペース換算・学び一覧・時間簿
+- 週次: 週ごとカードの数字サマリー・30日ペース換算・学び一覧・時間簿・
+  テーマ別成績(投稿にテーマを付けると公開本数/平均インプ/平均いいね/平均プロフを集計)
 - 設定: モデル設定・Drive接続/テスト/再送・スクショ収集・バックアップ3種・
   毎日のリマインド(時刻設定・未入力時のみ通知/バナー・入力済みならスキップ)
 - プロフィール画面(設定から): 名前/bio(160字)の保存履歴・bioの3項目AI診断+改善版1案・
@@ -61,7 +62,7 @@ export function buildCoachContext(): string {
 
   const posts = db
     .prepare(
-      `SELECT p.id, p.post_type, p.origin, p.status, p.created_at,
+      `SELECT p.id, p.post_type, p.origin, p.status, p.created_at, p.theme,
               COALESCE(p.final_text, p.raw_text) AS text
        FROM posts p WHERE p.status != 'DISCARDED' ORDER BY p.id ASC`,
     )
@@ -71,6 +72,7 @@ export function buildCoachContext(): string {
     origin: string;
     status: string;
     created_at: string;
+    theme: string | null;
     text: string;
   }[];
 
@@ -106,7 +108,7 @@ export function buildCoachContext(): string {
       ? `Imp${m.impressions ?? "-"} いいね${m.likes ?? "-"} RP${m.reposts ?? "-"} 返信${m.replies ?? "-"} プロフ${m.profile_visits ?? "-"} フォロー${m.follows ?? "-"}`
       : "数字未記録";
     lines.push(
-      `#${p.id} [${p.post_type}/${p.origin === "X_DIRECT" ? "直接投稿" : "CLIMB"}/${p.status}] ${p.created_at.slice(0, 10)} ${nums}\n  本文: ${p.text.replace(/\s+/g, " ").slice(0, 120)}`,
+      `#${p.id} [${p.post_type}/${p.origin === "X_DIRECT" ? "直接投稿" : "CLIMB"}/${p.status}${p.theme ? `/テーマ:${p.theme}` : ""}] ${p.created_at.slice(0, 10)} ${nums}\n  本文: ${p.text.replace(/\s+/g, " ").slice(0, 120)}`,
     );
   }
 
