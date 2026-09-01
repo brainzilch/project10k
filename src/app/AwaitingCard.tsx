@@ -15,9 +15,23 @@ const FIELDS = [
 
 export type AwaitingRow = { id: number; excerpt: string; days: number };
 
+export type RecordingStats = {
+  total: number; // published posts
+  recorded: number; // published posts with at least one metrics entry
+  streak: number; // consecutive days with a 24h+ unrecorded post present
+};
+
 // Count card for published posts (24h+) with no metrics. Tap to expand rows
 // with inline entry - numbers or a screenshot, no navigation needed.
-export default function AwaitingCard({ rows }: { rows: AwaitingRow[] }) {
+// Also carries the recording-discipline sub-lines (rate + unrecorded streak);
+// all green when every published post has numbers.
+export default function AwaitingCard({
+  rows,
+  stats,
+}: {
+  rows: AwaitingRow[];
+  stats: RecordingStats;
+}) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [values, setValues] = useState<Record<number, Record<string, string>>>({});
@@ -25,7 +39,19 @@ export default function AwaitingCard({ rows }: { rows: AwaitingRow[] }) {
   const [messages, setMessages] = useState<Record<number, string>>({});
   const shotInputs = useRef<Record<number, HTMLInputElement | null>>({});
 
-  if (rows.length === 0) return null;
+  const allRecorded = stats.total > 0 && stats.recorded === stats.total;
+  if (stats.total === 0 && rows.length === 0) return null;
+  if (allRecorded) {
+    return (
+      <div className="panel" style={{ borderColor: "#3fb950" }}>
+        <p style={{ margin: 0, color: "#3fb950" }}>全部記録できています</p>
+      </div>
+    );
+  }
+  const rate =
+    stats.total > 0 ? Math.round((stats.recorded / stats.total) * 100) : 0;
+  const alert = rate < 50 || stats.streak >= 3;
+  const accent = alert ? "#f85149" : "#d29922";
 
   function setValue(id: number, key: string, v: string) {
     setValues((prev) => ({ ...prev, [id]: { ...prev[id], [key]: v } }));
@@ -67,13 +93,22 @@ export default function AwaitingCard({ rows }: { rows: AwaitingRow[] }) {
   }
 
   return (
-    <div className="panel" style={{ borderColor: "#d29922" }}>
+    <div className="panel" style={{ borderColor: accent }}>
       <h2
-        style={{ margin: 0, cursor: "pointer", color: "#d29922" }}
+        style={{ margin: 0, cursor: "pointer", color: accent }}
         onClick={() => setExpanded(!expanded)}
       >
         数字未記録の公開投稿 {rows.length}件 {expanded ? "▾" : "▸"}
       </h2>
+      <p className="muted" style={{ margin: "6px 0 0", fontSize: 13 }}>
+        記録できている公開投稿：
+        <span style={{ color: accent }}>{stats.recorded}件</span> / 全
+        {stats.total}件（記録率 <span style={{ color: accent }}>{rate}%</span>）
+      </p>
+      <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
+        未記録が続いている日数：
+        <span style={{ color: accent }}>{stats.streak}日</span>
+      </p>
       {expanded &&
         rows.map((row) => (
           <div

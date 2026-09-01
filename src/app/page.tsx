@@ -97,6 +97,22 @@ export default function Dashboard() {
       days: daysSince(row.published_at),
     }));
 
+  // Recording discipline: how many published posts have numbers, and for how
+  // many consecutive days a 24h+ unrecorded post has existed (the oldest
+  // awaiting post guarantees the state held continuously since it came due).
+  const recordingCounts = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)) AS recorded
+       FROM posts p WHERE p.status = 'PUBLISHED'`,
+    )
+    .get() as { total: number; recorded: number | null };
+  const recordingStats = {
+    total: recordingCounts.total,
+    recorded: recordingCounts.recorded ?? 0,
+    streak: awaitingRows.reduce((max, r) => Math.max(max, r.days), 0),
+  };
+
   const publishedToday = (
     getDb()
       .prepare(
@@ -154,7 +170,7 @@ export default function Dashboard() {
         )}
       </p>
       <ReportPanel pending={pendingReport()} />
-      <AwaitingCard rows={awaitingRows} />
+      <AwaitingCard rows={awaitingRows} stats={recordingStats} />
       <CoachPanel
         summary={latestReport?.summary ?? null}
         actions={reportActions}
