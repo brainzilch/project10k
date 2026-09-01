@@ -106,6 +106,31 @@ export function buildCoachContext(): string {
   lines.push(`\n■ フォロワー推移（手入力の実測）`);
   for (const f of followers) lines.push(`${f.date}: ${f.followers}`);
 
+  const dailyStats = db
+    .prepare(
+      `SELECT date, impressions, profile_visits, new_follows, unfollows, posts_created
+       FROM x_daily_stats ORDER BY date DESC LIMIT 30`,
+    )
+    .all() as {
+    date: string;
+    impressions: number;
+    profile_visits: number;
+    new_follows: number;
+    unfollows: number;
+    posts_created: number;
+  }[];
+  if (dailyStats.length > 0) {
+    lines.push(
+      `\n■ 日次アカウント実績（Xアナリティクス実データ・直近${dailyStats.length}日）`,
+    );
+    lines.push("日付: Imp / プロフ訪問 / 新規フォロー / 解除 / 投稿数");
+    for (const d of dailyStats.reverse()) {
+      lines.push(
+        `${d.date}: ${d.impressions} / ${d.profile_visits} / +${d.new_follows} / -${d.unfollows} / ${d.posts_created}本`,
+      );
+    }
+  }
+
   lines.push(`\n■ 投稿と最新の数字`);
   for (const p of posts) {
     const m = metricsByPost.get(p.id);

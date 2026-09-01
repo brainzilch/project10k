@@ -93,7 +93,8 @@ CREATE TABLE IF NOT EXISTS posts (
     CHECK (status IN ('DRAFT', 'FINAL', 'PUBLISHED', 'DISCARDED')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   published_at TEXT,
-  theme TEXT
+  theme TEXT,
+  x_post_id TEXT
 );
 
 -- Every drafting stage of a post, in order: the rewriting process itself is
@@ -215,6 +216,22 @@ CREATE TABLE IF NOT EXISTS x_archive_posts (
   retweet_count INTEGER NOT NULL DEFAULT 0,
   is_reply INTEGER NOT NULL DEFAULT 0,
   is_retweet INTEGER NOT NULL DEFAULT 0
+);
+
+-- Daily account totals from the X analytics overview CSV. Upserted by date.
+CREATE TABLE IF NOT EXISTS x_daily_stats (
+  date TEXT PRIMARY KEY,
+  impressions INTEGER NOT NULL DEFAULT 0,
+  likes INTEGER NOT NULL DEFAULT 0,
+  engagements INTEGER NOT NULL DEFAULT 0,
+  bookmarks INTEGER NOT NULL DEFAULT 0,
+  shares INTEGER NOT NULL DEFAULT 0,
+  new_follows INTEGER NOT NULL DEFAULT 0,
+  unfollows INTEGER NOT NULL DEFAULT 0,
+  replies INTEGER NOT NULL DEFAULT 0,
+  reposts INTEGER NOT NULL DEFAULT 0,
+  profile_visits INTEGER NOT NULL DEFAULT 0,
+  posts_created INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS profile_revisions (
