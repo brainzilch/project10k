@@ -2,8 +2,10 @@ import { getDb, getMeta } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
 import { pendingReport } from "@/lib/report";
+import { openIdeas } from "@/lib/devstory";
 import AwaitingCard from "./AwaitingCard";
 import CoachPanel from "./CoachPanel";
+import DevStoriesPanel from "./DevStoriesPanel";
 import ProposalsPanel from "./ProposalsPanel";
 import ReportPanel from "./ReportPanel";
 
@@ -170,6 +172,7 @@ export default function Dashboard() {
         )}
       </p>
       <ReportPanel pending={pendingReport()} />
+      <DevStoriesPanel ideas={openIdeas()} />
       <AwaitingCard rows={awaitingRows} stats={recordingStats} />
       <CoachPanel
         summary={latestReport?.summary ?? null}

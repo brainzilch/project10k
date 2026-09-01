@@ -193,6 +193,30 @@ CREATE TABLE IF NOT EXISTS report_posts (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- AI-drafted dev-story post ideas (from the devlog), stocked for the owner
+-- to approve (-> DRAFT post, theme AI開発) or dismiss.
+CREATE TABLE IF NOT EXISTS dev_story_ideas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  text TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'USED', 'DISMISSED')),
+  post_id INTEGER REFERENCES posts(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Full past-post history imported from the official X archive download
+-- (data/tweets.js). Style corpus + long-term analysis material.
+CREATE TABLE IF NOT EXISTS x_archive_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tweet_id TEXT NOT NULL UNIQUE,
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  favorite_count INTEGER NOT NULL DEFAULT 0,
+  retweet_count INTEGER NOT NULL DEFAULT 0,
+  is_reply INTEGER NOT NULL DEFAULT 0,
+  is_retweet INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS profile_revisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

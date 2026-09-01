@@ -31,6 +31,13 @@ export async function register() {
               `[climb] report tick failed: ${e instanceof Error ? e.message : e}`,
             ),
           );
+        import("./lib/devstory")
+          .then((m) => m.autoDevStoryTick())
+          .catch((e) =>
+            console.error(
+              `[climb] dev story tick failed: ${e instanceof Error ? e.message : e}`,
+            ),
+          );
       }, 15 * 60 * 1000);
     }
   }
