@@ -109,6 +109,9 @@ function migrate(db: DatabaseSync) {
   if (!postColumnsAfter.some((c) => c.name === "x_post_id")) {
     db.exec("ALTER TABLE posts ADD COLUMN x_post_id TEXT");
   }
+  if (!postColumnsAfter.some((c) => c.name === "x_url")) {
+    db.exec("ALTER TABLE posts ADD COLUMN x_url TEXT");
+  }
 }
 
 // Run fn inside a transaction; rolls back on any error.

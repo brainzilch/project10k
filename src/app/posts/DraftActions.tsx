@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import PublishFollowupSheet from "@/components/PublishFollowupSheet";
+import { removeMetricReminder } from "@/components/metricReminders";
 
 // Publish / discard buttons for DRAFT cards. Both act immediately with a
 // 5-second undo toast instead of a confirm dialog (discard is a logical
@@ -10,6 +12,7 @@ export default function DraftActions({ postId }: { postId: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<"published" | "discarded" | null>(null);
+  const [sheet, setSheet] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function patch(body: object) {
@@ -33,6 +36,10 @@ export default function DraftActions({ postId }: { postId: number }) {
     if (timer.current) clearTimeout(timer.current);
     const kind = toast;
     setToast(null);
+    if (kind === "published") {
+      setSheet(false);
+      removeMetricReminder(postId);
+    }
     await patch(
       kind === "published" ? { unpublish: true, to: "DRAFT" } : { restore: true },
     );
@@ -45,6 +52,7 @@ export default function DraftActions({ postId }: { postId: number }) {
         onClick={async () => {
           await patch({ published: true });
           showToast("published");
+          setSheet(true);
         }}
       >
         公開済みにする
@@ -59,11 +67,14 @@ export default function DraftActions({ postId }: { postId: number }) {
       >
         破棄
       </button>
+      {sheet && (
+        <PublishFollowupSheet postId={postId} onClose={() => setSheet(false)} />
+      )}
       {toast && (
         <div
           style={{
             position: "fixed",
-            bottom: 16,
+            bottom: sheet ? 170 : 16,
             left: "50%",
             transform: "translateX(-50%)",
             background: "#1d2735",

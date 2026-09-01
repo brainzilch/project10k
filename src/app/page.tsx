@@ -11,7 +11,12 @@ import ReportPanel from "./ReportPanel";
 
 export const dynamic = "force-dynamic";
 
-export default function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ record?: string }>;
+}) {
+  const { record } = await searchParams;
   // auto-register any screenshots dropped into data/inbox since last visit,
   // and re-send assets whose Drive upload is pending or failed (spec section 6)
   try {
@@ -75,13 +80,20 @@ export default function Dashboard() {
     getDb()
       .prepare(
         `SELECT p.id, COALESCE(p.final_text, p.raw_text) AS text,
-                COALESCE(p.published_at, p.created_at) AS published_at
+                COALESCE(p.published_at, p.created_at) AS published_at,
+                p.x_url, p.x_post_id
          FROM posts p
          WHERE p.status = 'PUBLISHED'
            AND NOT EXISTS (SELECT 1 FROM post_metrics m WHERE m.post_id = p.id)
          ORDER BY COALESCE(p.published_at, p.created_at) ASC`,
       )
-      .all() as { id: number; text: string; published_at: string }[]
+      .all() as {
+      id: number;
+      text: string;
+      published_at: string;
+      x_url: string | null;
+      x_post_id: string | null;
+    }[]
   )
     .filter((row) => {
       const t = Date.parse(
@@ -97,6 +109,9 @@ export default function Dashboard() {
         row.text.replace(/\s+/g, " ").slice(0, 30) +
         (row.text.length > 30 ? "…" : ""),
       days: daysSince(row.published_at),
+      xLink:
+        row.x_url ||
+        (row.x_post_id ? `https://x.com/i/web/status/${row.x_post_id}` : null),
     }));
 
   // Recording discipline: how many published posts have numbers, and for how
@@ -201,7 +216,11 @@ export default function Dashboard() {
       )}
       <ReportPanel pending={pendingReport()} />
       <DevStoriesPanel ideas={openIdeas()} />
-      <AwaitingCard rows={awaitingRows} stats={recordingStats} />
+      <AwaitingCard
+        rows={awaitingRows}
+        stats={recordingStats}
+        autoOpenId={record ? Number(record) : null}
+      />
       <CoachPanel
         summary={latestReport?.summary ?? null}
         actions={reportActions}

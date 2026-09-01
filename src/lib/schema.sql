@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS posts (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   published_at TEXT,
   theme TEXT,
-  x_post_id TEXT
+  x_post_id TEXT,
+  x_url TEXT
 );
 
 -- Every drafting stage of a post, in order: the rewriting process itself is

@@ -28,6 +28,15 @@ export async function PATCH(
       ).run(id, next, body.final_text);
     });
   }
+  // Link to the live X post (pasted after publishing). Also backfills
+  // x_post_id from the /status/<id> part so CSV imports match this post.
+  if (typeof body.x_url === "string") {
+    const url = body.x_url.trim().slice(0, 300);
+    const idMatch = url.match(/\/status\/(\d+)/);
+    db.prepare(
+      "UPDATE posts SET x_url = ?, x_post_id = COALESCE(x_post_id, ?) WHERE id = ?",
+    ).run(url || null, idMatch ? idMatch[1] : null, id);
+  }
   // Free-text theme label for per-theme performance stats. Empty clears it.
   if (typeof body.theme === "string") {
     const theme = body.theme.trim().slice(0, 50);

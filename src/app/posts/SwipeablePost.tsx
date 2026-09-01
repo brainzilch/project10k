@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import PublishFollowupSheet from "@/components/PublishFollowupSheet";
+import { removeMetricReminder } from "@/components/metricReminders";
 
 // Left-swipe a DRAFT card to reveal 「公開済みにする」. No confirm dialog -
 // a 5-second undo toast reverts instead. Server-rendered card content is
@@ -20,6 +22,7 @@ export default function SwipeablePost({
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [toast, setToast] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const start = useRef({ x: 0, y: 0 });
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,6 +63,7 @@ export default function SwipeablePost({
     });
     router.refresh();
     setToast(true);
+    setSheet(true);
     if (undoTimer.current) clearTimeout(undoTimer.current);
     undoTimer.current = setTimeout(() => setToast(false), 5000);
   }
@@ -67,6 +71,8 @@ export default function SwipeablePost({
   async function undo() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
     setToast(false);
+    setSheet(false);
+    removeMetricReminder(postId);
     await fetch(`/api/posts/${postId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -110,11 +116,14 @@ export default function SwipeablePost({
       >
         {children}
       </div>
+      {sheet && (
+        <PublishFollowupSheet postId={postId} onClose={() => setSheet(false)} />
+      )}
       {toast && (
         <div
           style={{
             position: "fixed",
-            bottom: 16,
+            bottom: sheet ? 170 : 16,
             left: "50%",
             transform: "translateX(-50%)",
             background: "#1d2735",

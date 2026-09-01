@@ -13,7 +13,12 @@ const FIELDS = [
   ["follows", "フォロー"],
 ] as const;
 
-export type AwaitingRow = { id: number; excerpt: string; days: number };
+export type AwaitingRow = {
+  id: number;
+  excerpt: string;
+  days: number;
+  xLink: string | null;
+};
 
 export type RecordingStats = {
   total: number; // published posts
@@ -28,12 +33,17 @@ export type RecordingStats = {
 export default function AwaitingCard({
   rows,
   stats,
+  autoOpenId = null,
 }: {
   rows: AwaitingRow[];
   stats: RecordingStats;
+  autoOpenId?: number | null;
 }) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  // a ?record=<id> link (24h reminder tap) opens the card pre-expanded
+  const [expanded, setExpanded] = useState(
+    autoOpenId != null && rows.some((r) => r.id === autoOpenId),
+  );
   const [values, setValues] = useState<Record<number, Record<string, string>>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Record<number, string>>({});
@@ -127,6 +137,16 @@ export default function AwaitingCard({
               >
                 {row.excerpt}
               </Link>
+              {row.xLink && (
+                <a
+                  href={row.xLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ flexShrink: 0, fontSize: 13 }}
+                >
+                  Xで開く
+                </a>
+              )}
               <span
                 className={`badge ${row.days >= 3 ? "err" : "warn"}`}
                 style={{ marginLeft: "auto", flexShrink: 0 }}
