@@ -53,7 +53,12 @@ export async function POST(
       model,
       max_tokens: 6000,
       system: MINIMAL_EDIT_SYSTEM,
-      messages: [{ role: "user", content: text }],
+      messages: [
+        {
+          role: "user",
+          content: `投稿原文:\n${text}\n\n診断結果:\n${feedback}`,
+        },
+      ],
     });
     const aiEdit = textOf(editResponse);
 
