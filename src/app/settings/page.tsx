@@ -6,6 +6,7 @@ import { BackupButton, ModelForm } from "./SettingsForm";
 import CaptureTools from "./CaptureTools";
 import DriveTools from "./DriveTools";
 import ReminderSettings from "./ReminderSettings";
+import XArchiveImport from "./XArchiveImport";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,12 @@ export default function SettingsPage() {
     process.env.CLIMB_CLAUDE_MODEL || DEFAULT_MODEL,
   );
   const driveFolder = getSetting("drive_folder_id", "");
+  const archiveStats = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS n, MIN(created_at) AS oldest, MAX(created_at) AS newest
+       FROM x_archive_posts`,
+    )
+    .get() as { n: number; oldest: string | null; newest: string | null };
   const statusCounts = getDb()
     .prepare(
       `SELECT upload_status, COUNT(*) AS n FROM assets
@@ -48,6 +55,15 @@ export default function SettingsPage() {
           <a href="/profile">名前とbioの診断・変更履歴 →</a>
           　変更日はフォロワーグラフに点線で表示される
         </p>
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>過去投稿の取り込み（Xアーカイブ）</h2>
+        <XArchiveImport
+          stored={archiveStats.n}
+          oldest={archiveStats.oldest?.slice(0, 10) ?? null}
+          newest={archiveStats.newest?.slice(0, 10) ?? null}
+        />
       </div>
 
       <div className="panel">
