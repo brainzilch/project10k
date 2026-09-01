@@ -103,6 +103,9 @@ export function buildCoachContext(): string {
   lines.push(
     `プロジェクト: ${meta.start_date}開始、${meta.start_followers}→${meta.goal_followers}フォロワー、${meta.duration_days}日間`,
   );
+  lines.push(
+    `中間目標（収益化の階段）: 第一関門=報酬プログラム（認証済みフォロワー500人・認証済みインプ50万/90日。2026-09-01実測: 135人・1.46万）→ 次=サブスク解放（認証済み2,000人・500万インプ/3ヶ月）。認証済みフォロワーは総フォロワーの一部（実測比率 約9%）なので、第一関門は総フォロワー約5,000人規模に相当。提案はフォロワー数とインプ総量の両方を伸ばす観点で。`,
+  );
   lines.push(`\n■ フォロワー推移（手入力の実測）`);
   for (const f of followers) lines.push(`${f.date}: ${f.followers}`);
 

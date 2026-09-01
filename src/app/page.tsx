@@ -133,6 +133,16 @@ export default function Dashboard() {
       .get() as { n: number }
   ).n;
 
+  // Xサブスク収益化ライン: 認証済みフォロワー2,000人（実質、総フォロワー
+  // 1万規模＝PROJECT 10Kと同方向）+ 過去3ヶ月オーガニック500万インプ。
+  // インプはアナリティクス概要CSVの日次データから90日ローリングで自動追跡。
+  const imp90 = getDb()
+    .prepare(
+      `SELECT COALESCE(SUM(impressions), 0) AS total, COUNT(*) AS days
+       FROM x_daily_stats WHERE date >= date('now', '+9 hours', '-90 days')`,
+    )
+    .get() as { total: number; days: number };
+
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
   const elapsed = Math.floor(
@@ -171,6 +181,24 @@ export default function Dashboard() {
           "0件"
         )}
       </p>
+      {imp90.days > 0 && (
+        <div className="panel">
+          <strong>収益化ライン</strong>
+          <p className="muted" style={{ margin: "6px 0 0", fontSize: 13 }}>
+            第一関門（報酬プログラム）: 認証済みフォロワー500人・認証済みインプ50万/90日。
+            正確な現在値はXの「収益化」画面で確認（認証済みのみカウントされる）
+          </p>
+          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
+            参考・総インプ実測（90日）:{" "}
+            <span style={{ color: "#e6edf3" }}>{imp90.total.toLocaleString()}</span>
+            {" "}／ 必要ペースの目安 約5,600/日
+          </p>
+          <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>
+            次の関門: サブスク解放（認証済み2,000人・500万インプ/3ヶ月）。
+            インプはアナリティクス概要CSVで自動更新（現在{imp90.days}日分）
+          </p>
+        </div>
+      )}
       <ReportPanel pending={pendingReport()} />
       <DevStoriesPanel ideas={openIdeas()} />
       <AwaitingCard rows={awaitingRows} stats={recordingStats} />
