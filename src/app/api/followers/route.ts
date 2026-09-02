@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { deriveFollowersFromDailyStats } from "@/lib/followers";
 
 export async function GET() {
   const rows = getDb()
@@ -18,9 +19,13 @@ export async function POST(req: NextRequest) {
   // one row per date - same-date input overwrites
   getDb()
     .prepare(
-      `INSERT INTO daily_followers (date, followers) VALUES (?, ?)
-       ON CONFLICT(date) DO UPDATE SET followers = excluded.followers`,
+      `INSERT INTO daily_followers (date, followers, source) VALUES (?, ?, 'MANUAL')
+       ON CONFLICT(date) DO UPDATE SET followers = excluded.followers, source = 'MANUAL'`,
     )
     .run(date, followers);
+  // a new anchor changes every derived day around it
+  try {
+    deriveFollowersFromDailyStats();
+  } catch {}
   return NextResponse.json({ ok: true });
 }

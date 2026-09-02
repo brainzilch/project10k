@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import TimeLogForm from "./TimeLogForm";
+import { timingReport } from "@/lib/timing";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,7 @@ export default function WeeklyPage() {
     profile_visits: number | null;
     recorded: number;
   }[];
+  const timing = timingReport();
   const themeStats = (() => {
     const byTheme = new Map<string, typeof themedPosts>();
     for (const p of themedPosts) {
@@ -255,6 +257,49 @@ export default function WeeklyPage() {
         <h2 style={{ marginTop: 0 }}>時間簿</h2>
         <TimeLogForm today={today} />
       </div>
+
+      {(timing.recent.n >= 3 || timing.archive.n >= 20) && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>投稿時間帯の反応（JST）</h2>
+          {[
+            { key: "recent", title: `直近の実測インプ（${timing.recent.n}本）`, stats: timing.recent, min: 3 },
+            { key: "archive", title: `過去アーカイブのいいね（${timing.archive.n}本）`, stats: timing.archive, min: 20 },
+          ]
+            .filter((s) => s.stats.n >= s.min)
+            .map((s) => (
+              <div key={s.key} style={{ marginBottom: 12 }}>
+                <p className="muted" style={{ margin: "0 0 4px" }}>{s.title}</p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>時間帯</th>
+                      <th>本数</th>
+                      <th>平均</th>
+                      <th>曜日</th>
+                      <th>本数</th>
+                      <th>平均</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.stats.byHour.map((h, i) => {
+                      const d = s.stats.byWeekday[i];
+                      return (
+                        <tr key={h.label}>
+                          <td>{h.label}</td>
+                          <td>{h.n || "-"}</td>
+                          <td>{h.n ? h.avg.toLocaleString() : "-"}</td>
+                          <td>{d ? d.label : ""}</td>
+                          <td>{d ? d.n || "-" : ""}</td>
+                          <td>{d ? (d.n ? d.avg.toLocaleString() : "-") : ""}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+        </div>
+      )}
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>テーマ別成績</h2>

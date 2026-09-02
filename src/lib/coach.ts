@@ -1,4 +1,5 @@
 import { getDb, getMeta } from "./db";
+import { timingPromptBlock } from "./timing";
 
 export type Learning = {
   id: number;
@@ -26,6 +27,49 @@ export function learningsPromptBlock(): string {
   return `\n\n【このアカウントの実測から得た学び（診断・提案に反映すること）】\n${lines}`;
 }
 
+// The account's own best performers, so the diagnosis judges a draft against
+// what actually worked here rather than generic advice. Empty until 3 posts
+// have numbers.
+export function winnersPromptBlock(): string {
+  const rows = getDb()
+    .prepare(
+      `SELECT COALESCE(p.final_text, p.raw_text) AS text, p.theme, p.published_at,
+              pm.impressions, pm.likes, pm.profile_visits, pm.follows
+       FROM posts p
+       JOIN (SELECT pm.* FROM post_metrics pm
+             JOIN (SELECT post_id, MAX(measured_at) AS m FROM post_metrics GROUP BY post_id) x
+               ON x.post_id = pm.post_id AND x.m = pm.measured_at) pm ON pm.post_id = p.id
+       WHERE p.status = 'PUBLISHED' AND pm.impressions IS NOT NULL
+       ORDER BY pm.impressions DESC`,
+    )
+    .all() as {
+    text: string;
+    theme: string | null;
+    published_at: string | null;
+    impressions: number;
+    likes: number | null;
+    profile_visits: number | null;
+    follows: number | null;
+  }[];
+  if (rows.length < 3) return "";
+  const imps = rows.map((r) => r.impressions).sort((a, b) => a - b);
+  const median = imps[Math.floor(imps.length / 2)];
+  const top = rows.slice(0, 3).map(
+    (r) =>
+      `- Imp${r.impressions}/いいね${r.likes ?? 0}/プロフ${r.profile_visits ?? 0}/フォロー${r.follows ?? 0}${r.theme ? `/テーマ:${r.theme}` : ""}: ${r.text.replace(/\s+/g, " ").slice(0, 80)}`,
+  );
+  // numbers of very recent posts are still moving - never call them losers
+  const settled = rows.filter(
+    (r) =>
+      r.published_at &&
+      Date.now() - Date.parse(r.published_at.slice(0, 10)) > 3 * 86400000,
+  );
+  const bottom = settled.slice(-2).map(
+    (r) => `- Imp${r.impressions}: ${r.text.replace(/\s+/g, " ").slice(0, 60)}`,
+  );
+  return `\n\n【このアカウントで実際に伸びた投稿（中央値Imp${median}・${rows.length}本の実測）】\n${top.join("\n")}\n伸びなかった例:\n${bottom.join("\n")}`;
+}
+
 // Current feature set, told to the coach so app-improvement proposals are
 // grounded in what exists. Update when features are added or changed.
 const APP_FEATURES = `CLIMBの現在の機能:
@@ -36,8 +80,10 @@ const APP_FEATURES = `CLIMBの現在の機能:
   下書きの「N日滞留」バッジ(3日で赤)・下書き左スワイプで即公開(Undoトースト付き)・
   公開直後のシートで24時間後の数字記録通知(デフォルトON)とX投稿URLの紐付け
   (未記録カードに「Xで開く」リンク表示)
-- フォロワー: 日次手入力+折れ線グラフ+連続記録N日表示
+- フォロワー: 日次手入力+折れ線グラフ+連続記録N日表示。未入力日はアナリティクス概要CSVの
+  増減から自動補完(推定表示)
 - 週次: 週ごとカードの数字サマリー・30日ペース換算・学び一覧・時間簿・
+  投稿時間帯/曜日別の反応表(直近インプ+アーカイブいいね)・
   テーマ別成績(投稿にテーマを付けると公開本数/平均インプ/平均いいね/平均プロフを集計)
 - 設定: モデル設定・Drive接続/テスト/再送・スクショ収集・バックアップ3種・
   毎日のリマインド(時刻設定・未入力時のみ通知/バナー・入力済みならスキップ)
@@ -52,7 +98,8 @@ const APP_FEATURES = `CLIMBの現在の機能:
 - ホーム: 進捗指標+「今日の公開数/DRAFT滞留数」行+「数字未記録の公開投稿」件数カード
   (24時間経過分のみ・タップ展開で行内インライン入力+スクショ読み取り・記録率と未記録連続日数の
   サブ行付き、記録率50%未満か3日連続で赤、全件記録済みなら緑で「全部記録できています」)
-  +報告記事の下書きカード+AIコーチ(この分析)+アプリ改善提案
+  +報告記事の下書きカード+開発ネタ+収益化ライン(90日インプ・転換率)+AIコーチ(この分析)+アプリ改善提案
+- 診断/チャット/報告文のプロンプトには、このアカウントで実際に伸びた投稿トップ3と中央値が自動注入される
 - 投稿一覧: 24時間以上滞留DRAFTのバナー(タップで絞り込み)・DRAFT行に公開/破棄ボタン
   (破棄は論理削除DISCARDED・Undoトースト付き)
 制約: 1人用/X API不使用/スマホ利用がメイン/シンプルさ優先(PROJECT 10K > 開発)
@@ -69,9 +116,10 @@ export function buildCoachContext(): string {
 
   const posts = db
     .prepare(
-      `SELECT p.id, p.post_type, p.origin, p.status, p.created_at, p.theme,
+      `SELECT p.id, p.post_type, p.origin, p.status, p.theme,
+              COALESCE(p.published_at, p.created_at) AS created_at,
               COALESCE(p.final_text, p.raw_text) AS text
-       FROM posts p WHERE p.status != 'DISCARDED' ORDER BY p.id ASC`,
+       FROM posts p WHERE p.status != 'DISCARDED' ORDER BY p.id DESC LIMIT 80`,
     )
     .all() as {
     id: number;
@@ -82,6 +130,7 @@ export function buildCoachContext(): string {
     theme: string | null;
     text: string;
   }[];
+  posts.reverse();
 
   const latestMetrics = db
     .prepare(
@@ -136,7 +185,22 @@ export function buildCoachContext(): string {
     }
   }
 
-  lines.push(`\n■ 投稿と最新の数字`);
+  const conv = db
+    .prepare(
+      `SELECT COALESCE(SUM(impressions),0) AS imp, COALESCE(SUM(profile_visits),0) AS prof,
+              COALESCE(SUM(new_follows),0) AS fol, COALESCE(SUM(unfollows),0) AS unf, COUNT(*) AS days
+       FROM x_daily_stats WHERE date >= date('now', '+9 hours', '-30 days')`,
+    )
+    .get() as { imp: number; prof: number; fol: number; unf: number; days: number };
+  if (conv.days > 0 && conv.imp > 0) {
+    lines.push(
+      `\n■ 転換率（直近${conv.days}日・実データ）: インプ${conv.imp}→プロフ訪問${conv.prof}（${((conv.prof / conv.imp) * 100).toFixed(2)}%）→新規フォロー${conv.fol}（プロフ訪問の${conv.prof ? ((conv.fol / conv.prof) * 100).toFixed(1) : "-"}%）／フォロー解除${conv.unf}`,
+    );
+  }
+  const timing = timingPromptBlock();
+  if (timing) lines.push(timing.trim());
+
+  lines.push(`\n■ 投稿と最新の数字（直近80件）`);
   for (const p of posts) {
     const m = metricsByPost.get(p.id);
     const nums = m

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { importAnyAnalyticsCsv } from "@/lib/analyticsCsv";
+import { deriveFollowersFromDailyStats } from "@/lib/followers";
 import { saveAssetFile, timestampParts } from "@/lib/attachments";
 
 // X analytics content CSV upload. The CSV itself is kept as an ANALYTICS
@@ -36,6 +37,9 @@ export async function POST(req: NextRequest) {
       const r = importAnyAnalyticsCsv(text);
       if (r.kind === "overview") {
         totals.dailyRows += r.rows;
+        try {
+          deriveFollowersFromDailyStats();
+        } catch {}
       } else {
         totals.rows += r.rows;
         totals.repliesSkipped += r.repliesSkipped;

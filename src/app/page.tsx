@@ -158,6 +158,14 @@ export default async function Dashboard({
     )
     .get() as { total: number; days: number };
 
+  const conv30 = getDb()
+    .prepare(
+      `SELECT COALESCE(SUM(impressions),0) AS imp, COALESCE(SUM(profile_visits),0) AS prof,
+              COALESCE(SUM(new_follows),0) AS fol
+       FROM x_daily_stats WHERE date >= date('now', '+9 hours', '-30 days')`,
+    )
+    .get() as { imp: number; prof: number; fol: number };
+
   const msPerDay = 24 * 60 * 60 * 1000;
   const today = new Date().toISOString().slice(0, 10);
   const elapsed = Math.floor(
@@ -196,6 +204,13 @@ export default async function Dashboard({
           "0件"
         )}
       </p>
+      <AwaitingCard
+        rows={awaitingRows}
+        stats={recordingStats}
+        autoOpenId={record ? Number(record) : null}
+      />
+      <ReportPanel pending={pendingReport()} />
+      <DevStoriesPanel ideas={openIdeas()} />
       {imp90.days > 0 && (
         <div className="panel">
           <strong>収益化ライン</strong>
@@ -208,19 +223,24 @@ export default async function Dashboard({
             <span style={{ color: "#e6edf3" }}>{imp90.total.toLocaleString()}</span>
             {" "}／ 必要ペースの目安 約5,600/日
           </p>
+          {conv30.imp > 0 && (
+            <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
+              転換（30日）: インプ→プロフ{" "}
+              <span style={{ color: "#e6edf3" }}>
+                {((conv30.prof / conv30.imp) * 100).toFixed(2)}%
+              </span>
+              　プロフ→フォロー{" "}
+              <span style={{ color: "#e6edf3" }}>
+                {conv30.prof ? ((conv30.fol / conv30.prof) * 100).toFixed(1) : "-"}%
+              </span>
+            </p>
+          )}
           <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>
             次の関門: サブスク解放（認証済み2,000人・500万インプ/3ヶ月）。
             インプはアナリティクス概要CSVで自動更新（現在{imp90.days}日分）
           </p>
         </div>
       )}
-      <ReportPanel pending={pendingReport()} />
-      <DevStoriesPanel ideas={openIdeas()} />
-      <AwaitingCard
-        rows={awaitingRows}
-        stats={recordingStats}
-        autoOpenId={record ? Number(record) : null}
-      />
       <CoachPanel
         summary={latestReport?.summary ?? null}
         actions={reportActions}

@@ -33,8 +33,8 @@ function currentStreak(dates: Set<string>): number {
 
 export default function FollowersPage() {
   const rows = getDb()
-    .prepare("SELECT date, followers FROM daily_followers ORDER BY date ASC")
-    .all() as { date: string; followers: number }[];
+    .prepare("SELECT date, followers, source FROM daily_followers ORDER BY date ASC")
+    .all() as { date: string; followers: number; source: string }[];
   const today = jstToday();
   const streak = currentStreak(new Set(rows.map((r) => r.date)));
   const profileChangeDates = (
@@ -47,7 +47,7 @@ export default function FollowersPage() {
     <div>
       <h1>フォロワー記録</h1>
       <p className="muted" style={{ marginTop: -8 }}>
-        連続記録 {streak}日
+        連続記録 {streak}日（推定=アナリティクスCSVの増減から自動補完）
         {profileChangeDates.length > 0 && "　／　黄点線=プロフィール変更日"}
       </p>
       <FollowerForm today={today} />
@@ -66,7 +66,14 @@ export default function FollowersPage() {
             {[...rows].reverse().map((r) => (
               <tr key={r.date}>
                 <td>{r.date}</td>
-                <td>{r.followers.toLocaleString()}</td>
+                <td>
+                  {r.followers.toLocaleString()}
+                  {r.source === "DERIVED" && (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      　推定
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

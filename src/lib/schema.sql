@@ -131,6 +131,9 @@ CREATE TABLE IF NOT EXISTS daily_followers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL UNIQUE,
   followers INTEGER NOT NULL,
+  -- MANUAL = typed by the owner (anchor). DERIVED = filled from the X
+  -- overview CSV's new_follows/unfollows relative to the nearest anchor.
+  source TEXT NOT NULL DEFAULT 'MANUAL',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -233,6 +236,24 @@ CREATE TABLE IF NOT EXISTS x_daily_stats (
   reposts INTEGER NOT NULL DEFAULT 0,
   profile_visits INTEGER NOT NULL DEFAULT 0,
   posts_created INTEGER NOT NULL DEFAULT 0
+);
+
+-- Web Push subscriptions (one per device/browser) and a log so each
+-- reminder kind fires at most once per reference.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS push_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (kind, ref)
 );
 
 CREATE TABLE IF NOT EXISTS profile_revisions (

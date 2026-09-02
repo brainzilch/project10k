@@ -7,7 +7,7 @@ import {
   PROMPT_VERSION,
 } from "@/lib/diagnosis";
 import { postTypeLabel } from "@/lib/labels";
-import { learningsPromptBlock } from "@/lib/coach";
+import { learningsPromptBlock, winnersPromptBlock } from "@/lib/coach";
 
 // Diagnose the latest draft (RAW or REWRITE) and, in the same run, produce the
 // single suggestion-applied version so the user can compare before deciding to
@@ -39,7 +39,7 @@ export async function POST(
     const diagnosisResponse = await client.messages.create({
       model,
       max_tokens: 6000,
-      system: DIAGNOSIS_SYSTEM + learningsPromptBlock(),
+      system: DIAGNOSIS_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
       messages: [
         {
           role: "user",

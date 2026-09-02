@@ -1,6 +1,6 @@
 import { getDb, getMeta, getSetting, setSetting, inTransaction } from "./db";
 import { getClient, getModel, textOf } from "./anthropic";
-import { learningsPromptBlock } from "./coach";
+import { learningsPromptBlock, winnersPromptBlock } from "./coach";
 import { saveAssetFile, timestampParts } from "./attachments";
 import { launchBrowser } from "./browser";
 
@@ -207,7 +207,7 @@ async function generateReportText(
     const response = await getClient().messages.create({
       model: getModel(),
       max_tokens: 8000,
-      system: REPORT_SYSTEM + learningsPromptBlock(),
+      system: REPORT_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
       output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
       messages,
     });
