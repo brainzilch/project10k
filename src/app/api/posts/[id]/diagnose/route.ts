@@ -8,6 +8,7 @@ import {
 } from "@/lib/diagnosis";
 import { postTypeLabel } from "@/lib/labels";
 import { learningsPromptBlock, winnersPromptBlock } from "@/lib/coach";
+import { DIAGNOSIS_KNOWLEDGE } from "@/lib/growthKnowledge";
 
 // Diagnose the latest draft (RAW or REWRITE) and, in the same run, produce the
 // single suggestion-applied version so the user can compare before deciding to
@@ -42,7 +43,7 @@ export async function POST(
       system: [
         {
           type: "text",
-          text: DIAGNOSIS_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
+          text: DIAGNOSIS_SYSTEM + DIAGNOSIS_KNOWLEDGE + learningsPromptBlock() + winnersPromptBlock(),
           cache_control: { type: "ephemeral" },
         },
       ],

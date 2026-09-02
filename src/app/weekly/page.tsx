@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import TimeLogForm from "./TimeLogForm";
 import { timingReport } from "@/lib/timing";
+import { ALGO_RULES, KNOWLEDGE_VERSION } from "@/lib/growthKnowledge";
 
 export const dynamic = "force-dynamic";
 
@@ -306,6 +307,18 @@ export default function WeeklyPage() {
             ))}
         </div>
       )}
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>アルゴリズム攻略メモ（{KNOWLEDGE_VERSION}版）</h2>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+          公開されたXのアルゴリズム（Grok系）の解析と海外実測データの要約。AIコーチと投稿診断にも同じ知識が注入されている
+        </p>
+        <ol style={{ margin: 0, paddingLeft: 20 }}>
+          {ALGO_RULES.map((r, i) => (
+            <li key={i} style={{ marginBottom: 4 }}>{r}</li>
+          ))}
+        </ol>
+      </div>
 
       {archiveBest.length > 0 && (
         <div className="panel">

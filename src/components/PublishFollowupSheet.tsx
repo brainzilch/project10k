@@ -62,6 +62,9 @@ export default function PublishFollowupSheet({
       }}
     >
       <strong>公開済みにしました</strong>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+        ここからの30分が拡散の分水嶺。来たリプには全部返信する（会話の往復はいいねの約150倍の評価）
+      </p>
       <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
         <input
           type="checkbox"

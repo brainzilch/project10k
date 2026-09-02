@@ -123,7 +123,7 @@ export default function ReplyPanel({
       )}
       {all.filter((t) => t.active === 1).length < quota && (
         <p className="muted" style={{ margin: "6px 0 0", fontSize: 13 }}>
-          リプ先が枠より少ない。同ジャンル（AI×映像・現場）で自分よりフォロワーの多いアカウントを{quota}件以上登録すると回り始める
+          リプ先が枠より少ない。同ジャンル（AI×映像・現場）で自分よりフォロワーの多いアカウントを{quota}件以上登録すると回り始める。相手の投稿から30分以内・価値を足すリプが最も効く
         </p>
       )}
 

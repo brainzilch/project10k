@@ -2,10 +2,12 @@
 // their feedback (posts.prompt_version).
 // v2: accumulated learnings from measured results are appended to the system
 // prompt (see lib/coach.ts learningsPromptBlock).
+// v4: algorithm knowledge base (growthKnowledge.ts) appended to the system
+// prompt so the 5-item review reflects current ranking mechanics.
 // v3: the minimal-edit pass now receives the diagnosis and must fix exactly
 // the flagged points (previously it saw only the original text, so the
 // "suggestion-applied version" was a near-copy that ignored its own findings).
-export const PROMPT_VERSION = "v3";
+export const PROMPT_VERSION = "v4";
 
 export const DIAGNOSIS_SYSTEM = `あなたはX(Twitter)投稿の診断者。ユーザー本人が書いた投稿原文を診断する。
 出力は次の5項目のみ。各項目は必ず1行以内。長文講評・総評・書き直し案は出力しない。

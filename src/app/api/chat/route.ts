@@ -9,6 +9,7 @@ import {
   SUPPORTED_IMAGE_MIMES,
 } from "@/lib/attachments";
 import { learningsPromptBlock, winnersPromptBlock } from "@/lib/coach";
+import { DIAGNOSIS_KNOWLEDGE } from "@/lib/growthKnowledge";
 
 const CHAT_SYSTEM = `あなたはPROJECT 10K（Xアカウント@brainzilchを365日で1,458→10,000フォロワーへ成長させる実証プロジェクト）の相談相手。
 本人が体験し、考え、書き、判断する。あなたは指摘・記録・整理・分析補助を担当する。簡潔に答える。`;
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
       // the whole history (images included) is re-sent every turn - cache the
       // prefix so the next turn pays ~10% for everything before the new message
       cache_control: { type: "ephemeral" },
-      system: CHAT_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
+      system: CHAT_SYSTEM + DIAGNOSIS_KNOWLEDGE + learningsPromptBlock() + winnersPromptBlock(),
       messages: apiMessages,
     });
     const assistantText = textOf(trackUsage("チャット", response));
