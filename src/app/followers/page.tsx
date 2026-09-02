@@ -42,6 +42,15 @@ export default function FollowersPage() {
       .prepare("SELECT DISTINCT applied_on FROM profile_revisions ORDER BY applied_on")
       .all() as { applied_on: string }[]
   ).map((r) => r.applied_on);
+  const pinnedChangeDates = (
+    getDb()
+      .prepare("SELECT DISTINCT applied_on FROM pinned_posts ORDER BY applied_on")
+      .all() as { applied_on: string }[]
+  ).map((r) => r.applied_on);
+  const markers = [
+    ...profileChangeDates.map((date) => ({ date, color: "#d29922" })),
+    ...pinnedChangeDates.map((date) => ({ date, color: "#a371f7" })),
+  ];
 
   return (
     <div>
@@ -49,10 +58,11 @@ export default function FollowersPage() {
       <p className="muted" style={{ marginTop: -8 }}>
         連続記録 {streak}日（推定=アナリティクスCSVの増減から自動補完）
         {profileChangeDates.length > 0 && "　／　黄点線=プロフィール変更日"}
+        {pinnedChangeDates.length > 0 && "　／　紫点線=固定ポスト変更日"}
       </p>
       <FollowerForm today={today} />
       <div className="panel">
-        <FollowerChart data={rows} markers={profileChangeDates} />
+        <FollowerChart data={rows} markers={markers} />
       </div>
       <div className="panel">
         <table>

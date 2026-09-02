@@ -1,12 +1,14 @@
 // Plain SVG line chart - dates on X, followers on Y. No chart library.
 // markers: dates (e.g. profile changes) drawn as vertical dotted lines for
 // before/after comparison.
+export type ChartMarker = { date: string; color: string };
+
 export default function FollowerChart({
   data,
   markers = [],
 }: {
   data: { date: string; followers: number }[];
-  markers?: string[];
+  markers?: ChartMarker[];
 }) {
   if (data.length === 0) return <p className="muted">No data yet.</p>;
 
@@ -54,16 +56,16 @@ export default function FollowerChart({
         {data[data.length - 1].date}
       </text>
       {markers
-        .map((d) => Date.parse(d))
-        .filter((t) => Number.isFinite(t) && t >= xMin && t <= xMax)
-        .map((t, i) => (
+        .map((m) => ({ t: Date.parse(m.date), color: m.color }))
+        .filter((m) => Number.isFinite(m.t) && m.t >= xMin && m.t <= xMax)
+        .map(({ t, color }, i) => (
           <line
             key={i}
             x1={px(t)}
             y1={PAD.top}
             x2={px(t)}
             y2={H - PAD.bottom}
-            stroke="#d29922"
+            stroke={color}
             strokeWidth="1.5"
             strokeDasharray="4 4"
             opacity="0.8"

@@ -290,6 +290,15 @@ CREATE TABLE IF NOT EXISTS api_usage (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Pinned-post history (append-only). applied_on = the JST date the post was
+-- pinned on X, so before/after conversion can be compared.
+CREATE TABLE IF NOT EXISTS pinned_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL REFERENCES posts(id),
+  applied_on TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS profile_revisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
