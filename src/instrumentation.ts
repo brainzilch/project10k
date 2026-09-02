@@ -39,6 +39,13 @@ export async function register() {
               `[climb] dev story tick failed: ${e instanceof Error ? e.message : e}`,
             ),
           );
+        import("./lib/coachRun")
+          .then((m) => m.autoCoachTick())
+          .catch((e) =>
+            console.error(
+              `[climb] coach tick failed: ${e instanceof Error ? e.message : e}`,
+            ),
+          );
         import("./lib/push")
           .then((m) => m.pushTick())
           .catch((e) =>

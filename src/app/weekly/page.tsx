@@ -90,6 +90,12 @@ export default function WeeklyPage() {
     recorded: number;
   }[];
   const timing = timingReport();
+  const archiveBest = db
+    .prepare(
+      `SELECT created_at, favorite_count, retweet_count, text FROM x_archive_posts
+       WHERE is_retweet = 0 AND is_reply = 0 ORDER BY favorite_count DESC LIMIT 10`,
+    )
+    .all() as { created_at: string; favorite_count: number; retweet_count: number; text: string }[];
   const themeStats = (() => {
     const byTheme = new Map<string, typeof themedPosts>();
     for (const p of themedPosts) {
@@ -298,6 +304,20 @@ export default function WeeklyPage() {
                 </table>
               </div>
             ))}
+        </div>
+      )}
+
+      {archiveBest.length > 0 && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>過去のベスト投稿（アーカイブ・いいね順）</h2>
+          {archiveBest.map((a, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {a.created_at.slice(0, 10)}　いいね{a.favorite_count}・RP{a.retweet_count}
+              </span>
+              <div style={{ fontSize: 14 }}>{a.text.replace(/\s+/g, " ").slice(0, 120)}</div>
+            </div>
+          ))}
         </div>
       )}
 

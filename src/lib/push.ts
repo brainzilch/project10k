@@ -71,7 +71,7 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
 }
 
 // At most once per (kind, ref): the log row is the lock.
-async function pushOnce(kind: string, ref: string, payload: PushPayload): Promise<void> {
+export async function pushOnce(kind: string, ref: string, payload: PushPayload): Promise<void> {
   const { changes } = getDb()
     .prepare("INSERT OR IGNORE INTO push_log (kind, ref) VALUES (?, ?)")
     .run(kind, ref);

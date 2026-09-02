@@ -95,7 +95,9 @@ const APP_FEATURES = `CLIMBの現在の機能:
   Xアプリへ1タップ共有(投稿の最終判断・実行は本人)
 - 開発ネタのストック(ホーム): AIと組んだ現場の出来事を本人の文体で投稿ネタ化し
   最大3件ストック(毎日20時自動補充+手動補充)。採用すると本テーマ「AI開発」の下書きになる
-- Xアーカイブ取り込み(設定): 公式アーカイブのtweets.jsで過去全投稿を蓄積、文体学習に使用
+- Xアーカイブ取り込み(設定): 公式アーカイブのtweets.jsで過去全投稿を蓄積、文体学習・
+  時間帯分析・過去ベスト投稿(週次画面/コーチ入力)に使用
+- AIコーチは毎週月曜20時に自動実行され結果がプッシュ通知される(手動更新も可)
 - ホーム: 進捗指標+「今日の公開数/DRAFT滞留数」行+「数字未記録の公開投稿」件数カード
   (24時間経過分のみ・タップ展開で行内インライン入力+スクショ読み取り・記録率と未記録連続日数の
   サブ行付き、記録率50%未満か3日連続で赤、全件記録済みなら緑で「全部記録できています」)
@@ -200,6 +202,21 @@ export function buildCoachContext(): string {
   }
   const timing = timingPromptBlock();
   if (timing) lines.push(timing.trim());
+
+  const archiveTop = db
+    .prepare(
+      `SELECT created_at, favorite_count, retweet_count, text FROM x_archive_posts
+       WHERE is_retweet = 0 AND is_reply = 0 ORDER BY favorite_count DESC LIMIT 8`,
+    )
+    .all() as { created_at: string; favorite_count: number; retweet_count: number; text: string }[];
+  if (archiveTop.length > 0) {
+    lines.push(`\n■ 過去アーカイブのいいね上位（PROJECT 10K以前の実績・何が刺さる人か）`);
+    for (const a of archiveTop) {
+      lines.push(
+        `${a.created_at.slice(0, 10)} いいね${a.favorite_count}/RP${a.retweet_count}: ${a.text.replace(/\s+/g, " ").slice(0, 90)}`,
+      );
+    }
+  }
 
   lines.push(`\n■ 投稿と最新の数字（直近80件）`);
   for (const p of posts) {
