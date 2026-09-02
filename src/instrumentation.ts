@@ -16,7 +16,8 @@ export async function register() {
       console.error(`[climb] uncaught exception: ${error.stack ?? error.message}`);
     });
 
-    // Report scheduler: every 15 minutes check whether a PROJECT 10K report
+    // Scheduler: every 5 minutes run the report / dev-story / push ticks (each
+    // guards its own cadence). Report: check whether a PROJECT 10K report
     // draft is due (weekly / milestone, generated in the 20:00 JST hour).
     // Guarded against double registration across hot reloads.
     const g = globalThis as {
@@ -38,7 +39,14 @@ export async function register() {
               `[climb] dev story tick failed: ${e instanceof Error ? e.message : e}`,
             ),
           );
-      }, 15 * 60 * 1000);
+        import("./lib/push")
+          .then((m) => m.pushTick())
+          .catch((e) =>
+            console.error(
+              `[climb] push tick failed: ${e instanceof Error ? e.message : e}`,
+            ),
+          );
+      }, 5 * 60 * 1000);
     }
   }
 }

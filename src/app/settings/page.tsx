@@ -7,6 +7,8 @@ import CaptureTools from "./CaptureTools";
 import DriveTools from "./DriveTools";
 import ReminderSettings from "./ReminderSettings";
 import XArchiveImport from "./XArchiveImport";
+import PushSettings from "./PushSettings";
+import { subscriptionCount } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +94,15 @@ export default function SettingsPage() {
       </div>
 
       <div className="panel">
-        <h2 style={{ marginTop: 0 }}>毎日のリマインド</h2>
+        <h2 style={{ marginTop: 0 }}>プッシュ通知（推奨）</h2>
+        <PushSettings
+          devices={subscriptionCount()}
+          reminderTime={getSetting("push_reminder_time", "22:00")}
+        />
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>アプリ内リマインド（プッシュ非対応時の予備）</h2>
         <ReminderSettings />
       </div>
 

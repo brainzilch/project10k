@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 // Single-user password gate. Active only when CLIMB_PASSWORD is set - required
 // the moment CLIMB is reachable from outside the PC (cloud hosting). Not a
 // multi-user auth system: one password, one cookie.
-const PUBLIC_PATHS = ["/login", "/api/login"];
+// sw.js / manifest / icons must load without the auth cookie (PWA install,
+// service-worker fetches)
+const PUBLIC_PATHS = ["/login", "/api/login", "/sw.js", "/manifest.webmanifest", "/icons/"];
 
 async function sha256Hex(s: string): Promise<string> {
   const digest = await crypto.subtle.digest(

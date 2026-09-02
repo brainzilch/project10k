@@ -1,12 +1,22 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import ReminderWatcher from "@/components/ReminderWatcher";
 import MetricReminderWatcher from "@/components/MetricReminderWatcher";
+import SwRegistrar from "@/components/SwRegistrar";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "CLIMB - PROJECT 10K",
   description: "PROJECT 10K recording / post diagnosis / AI chat tool",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "CLIMB" },
+  icons: { apple: "/icons/icon-192.png", icon: "/icons/icon-192.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d1117",
+  width: "device-width",
+  initialScale: 1,
 };
 
 const NAV = [
@@ -38,6 +48,7 @@ export default function RootLayout({
         <main>{children}</main>
         <ReminderWatcher />
         <MetricReminderWatcher />
+        <SwRegistrar />
       </body>
     </html>
   );

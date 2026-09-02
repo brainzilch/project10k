@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { buildCoachContext, winnersPromptBlock } from "@/lib/coach";
+import { pushTick } from "@/lib/push";
+import { getDb } from "@/lib/db";
 export async function GET() {
-  return NextResponse.json({ winners: winnersPromptBlock(), ctx: buildCoachContext() });
+  await pushTick();
+  return NextResponse.json({ log: getDb().prepare("SELECT kind, ref FROM push_log").all() });
 }
