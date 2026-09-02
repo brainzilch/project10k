@@ -3,6 +3,8 @@ import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
 import { pendingReport } from "@/lib/report";
 import { openIdeas } from "@/lib/devstory";
+import { allTargets, evaluateReplyQuota, todayPlan } from "@/lib/reply";
+import ReplyPanel from "./ReplyPanel";
 import AwaitingCard from "./AwaitingCard";
 import CoachPanel from "./CoachPanel";
 import DevStoriesPanel from "./DevStoriesPanel";
@@ -158,6 +160,11 @@ export default async function Dashboard({
     )
     .get() as { total: number; days: number };
 
+  // reply outreach: quota rule is evaluated at most once per day
+  const replyQuota = evaluateReplyQuota();
+  const replyPlan = todayPlan();
+  const replyAll = allTargets();
+
   const conv30 = getDb()
     .prepare(
       `SELECT COALESCE(SUM(impressions),0) AS imp, COALESCE(SUM(profile_visits),0) AS prof,
@@ -208,6 +215,13 @@ export default async function Dashboard({
         rows={awaitingRows}
         stats={recordingStats}
         autoOpenId={record ? Number(record) : null}
+      />
+      <ReplyPanel
+        quota={replyPlan.quota}
+        reason={replyQuota.reason}
+        targets={replyPlan.targets}
+        done={replyPlan.done}
+        all={replyAll}
       />
       <ReportPanel pending={pendingReport()} />
       <DevStoriesPanel ideas={openIdeas()} />

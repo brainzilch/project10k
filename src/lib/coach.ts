@@ -1,5 +1,6 @@
 import { getDb, getMeta } from "./db";
 import { timingPromptBlock } from "./timing";
+import { replyPromptBlock } from "./reply";
 
 export type Learning = {
   id: number;
@@ -103,6 +104,9 @@ const APP_FEATURES = `CLIMBの現在の機能:
   サブ行付き、記録率50%未満か3日連続で赤、全件記録済みなら緑で「全部記録できています」)
   +報告記事の下書きカード+開発ネタ+収益化ライン(90日インプ・転換率)+AIコーチ(この分析)+アプリ改善提案
 - 診断/チャット/報告文のプロンプトには、このアカウントで実際に伸びた投稿トップ3と中央値が自動注入される
+- 今日のリプ先(ホーム): 登録アカウントから毎日、最も長くリプしていない順に枠数を自動選出。
+  Xで開く→済で記録。枠(3〜10件/日)は直近7日の新規フォロー/インプ/達成率からルールで毎日自動調整し
+  理由を表示。20時に未消化ならプッシュ通知
 - 投稿一覧: 24時間以上滞留DRAFTのバナー(タップで絞り込み)・DRAFT行に公開/破棄ボタン
   (破棄は論理削除DISCARDED・Undoトースト付き)
 制約: 1人用/X API不使用/スマホ利用がメイン/シンプルさ優先(PROJECT 10K > 開発)
@@ -202,6 +206,7 @@ export function buildCoachContext(): string {
   }
   const timing = timingPromptBlock();
   if (timing) lines.push(timing.trim());
+  lines.push(replyPromptBlock());
 
   const archiveTop = db
     .prepare(

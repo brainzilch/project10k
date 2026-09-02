@@ -129,6 +129,23 @@ export async function pushTick(): Promise<void> {
     });
   }
 
+  // 2b) evening nudge when today's reply quota is not done yet
+  if (minutes >= 20 * 60) {
+    const { todayPlan } = await import("./reply");
+    const plan = todayPlan();
+    const activeTargets = db
+      .prepare("SELECT COUNT(*) AS n FROM reply_targets WHERE active = 1")
+      .get() as { n: number };
+    if (activeTargets.n > 0 && plan.done < plan.quota) {
+      await pushOnce("reply", today, {
+        title: "CLIMB",
+        body: `今日のリプ あと${plan.quota - plan.done}件`,
+        url: "/",
+        tag: "reply",
+      });
+    }
+  }
+
   // 3) a report draft or new dev-story ideas are waiting
   const report = db
     .prepare(

@@ -256,6 +256,26 @@ CREATE TABLE IF NOT EXISTS push_log (
   UNIQUE (kind, ref)
 );
 
+-- Reply outreach: accounts worth replying to (distribution channel for a
+-- small account) and a log of replies done. The daily quota is a setting
+-- tuned automatically from measured results (see lib/reply.ts).
+CREATE TABLE IF NOT EXISTS reply_targets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  handle TEXT NOT NULL UNIQUE,
+  note TEXT,
+  priority INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reply_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  target_id INTEGER REFERENCES reply_targets(id),
+  date TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_reply_logs_date ON reply_logs(date);
+
 CREATE TABLE IF NOT EXISTS profile_revisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
