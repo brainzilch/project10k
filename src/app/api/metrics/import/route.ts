@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, inTransaction } from "@/lib/db";
-import { getClient, getModel, textOf } from "@/lib/anthropic";
+import { getClient, getModel, textOf, trackUsage } from "@/lib/anthropic";
 import { saveAssetFile, SUPPORTED_IMAGE_MIMES, timestampParts } from "@/lib/attachments";
 
 const EXTRACT_SYSTEM = `あなたはX(Twitter)のアナリティクス（ポストアクティビティ）スクリーンショットの読み取り係。
@@ -97,6 +97,8 @@ export async function POST(req: NextRequest) {
       const response = await client.messages.create({
         model,
         max_tokens: 6000,
+        // pure extraction - no judgement needed, medium effort is plenty
+        output_config: { effort: "medium" },
         system: EXTRACT_SYSTEM,
         messages: [
           {
@@ -115,7 +117,7 @@ export async function POST(req: NextRequest) {
           },
         ],
       });
-      const extracted = parseJson(textOf(response));
+      const extracted = parseJson(textOf(trackUsage("スクショ読取", response)));
 
       const postText = String(extracted.post_text ?? "").trim();
 

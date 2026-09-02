@@ -1,5 +1,5 @@
 import { DB_PATH, getDb, getSetting } from "@/lib/db";
-import { DEFAULT_MODEL } from "@/lib/anthropic";
+import { DEFAULT_MODEL, monthlyUsage } from "@/lib/anthropic";
 import { INBOX_DIR } from "@/lib/inbox";
 import { driveConfigured, driveConnected } from "@/lib/drive";
 import { BackupButton, ModelForm } from "./SettingsForm";
@@ -19,6 +19,7 @@ export default function SettingsPage() {
     process.env.CLIMB_CLAUDE_MODEL || DEFAULT_MODEL,
   );
   const driveFolder = getSetting("drive_folder_id", "");
+  const usage = monthlyUsage();
   const archiveStats = getDb()
     .prepare(
       `SELECT COUNT(*) AS n, MIN(created_at) AS oldest, MAX(created_at) AS newest
@@ -80,6 +81,21 @@ export default function SettingsPage() {
         </p>
         <p className="muted">Claudeモデル（診断・チャット共通）:</p>
         <ModelForm current={model} />
+        <p style={{ margin: "12px 0 4px" }}>
+          今月のAI費用（{usage.month}・実測）:{" "}
+          <strong>${usage.totalUsd.toFixed(2)}</strong>
+          <span className="muted">
+            {" "}≈ ¥{Math.round(usage.totalUsd * 150).toLocaleString()}（$1=¥150換算）・{usage.calls}回・
+            キャッシュ命中 {Math.round(usage.cacheHitRate * 100)}%
+          </span>
+        </p>
+        {usage.byPurpose.length > 0 && (
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            {usage.byPurpose
+              .map((p) => `${p.purpose} $${p.usd.toFixed(2)}(${p.calls}回)`)
+              .join("　")}
+          </p>
+        )}
       </div>
 
       <div className="panel">

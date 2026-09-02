@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, inTransaction } from "@/lib/db";
-import { getClient, getModel, textOf } from "@/lib/anthropic";
+import { getClient, getModel, textOf, trackUsage } from "@/lib/anthropic";
 import {
   DIAGNOSIS_SYSTEM,
   MINIMAL_EDIT_SYSTEM,
@@ -39,7 +39,13 @@ export async function POST(
     const diagnosisResponse = await client.messages.create({
       model,
       max_tokens: 6000,
-      system: DIAGNOSIS_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
+      system: [
+        {
+          type: "text",
+          text: DIAGNOSIS_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: [
         {
           role: "user",
@@ -47,7 +53,7 @@ export async function POST(
         },
       ],
     });
-    const feedback = textOf(diagnosisResponse);
+    const feedback = textOf(trackUsage("投稿診断", diagnosisResponse));
 
     const editResponse = await client.messages.create({
       model,
@@ -60,7 +66,7 @@ export async function POST(
         },
       ],
     });
-    const aiEdit = textOf(editResponse);
+    const aiEdit = textOf(trackUsage("提案版", editResponse));
 
     const draftCount = inTransaction(() => {
       db.prepare(

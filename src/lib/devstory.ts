@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { getDb, getSetting, setSetting, inTransaction } from "./db";
-import { getClient, getModel, textOf } from "./anthropic";
+import { getClient, getModel, textOf, trackUsage } from "./anthropic";
 import { learningsPromptBlock } from "./coach";
 
 // ---------------------------------------------------------------------------
@@ -161,7 +161,7 @@ export async function generateDevStories(count?: number): Promise<number> {
     output_config: { format: { type: "json_schema", schema: DEVSTORY_SCHEMA } },
     messages: [{ role: "user", content: input }],
   });
-  const data = JSON.parse(textOf(response)) as {
+  const data = JSON.parse(textOf(trackUsage("開発ネタ", response))) as {
     ideas: { title: string; text: string }[];
   };
 

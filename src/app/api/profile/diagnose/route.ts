@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClient, getModel, textOf } from "@/lib/anthropic";
+import { getClient, getModel, textOf, trackUsage } from "@/lib/anthropic";
 import { learningsPromptBlock } from "@/lib/coach";
 
 const BIO_SYSTEM = `あなたはXプロフィール（bio）の診断者。PROJECT 10K（1,458→10,000フォロワーへの365日挑戦）のアカウント。
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       output_config: { format: { type: "json_schema", schema: BIO_SCHEMA } },
       messages: [{ role: "user", content: `名前: ${name}\nbio:\n${bio}` }],
     });
-    const data = JSON.parse(textOf(response)) as {
+    const data = JSON.parse(textOf(trackUsage("bio診断", response))) as {
       assessment: string;
       improved_bio: string;
     };

@@ -1,5 +1,5 @@
 import { getDb, getMeta, getSetting, setSetting, inTransaction } from "./db";
-import { getClient, getModel, textOf } from "./anthropic";
+import { getClient, getModel, textOf, trackUsage } from "./anthropic";
 import { learningsPromptBlock, winnersPromptBlock } from "./coach";
 import { saveAssetFile, timestampParts } from "./attachments";
 import { launchBrowser } from "./browser";
@@ -211,7 +211,7 @@ async function generateReportText(
       output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
       messages,
     });
-    const raw = textOf(response);
+    const raw = textOf(trackUsage("報告記事", response));
     const data = JSON.parse(raw) as { text: string };
     const text = data.text.trim();
     const banned = bannedTermIn(text);

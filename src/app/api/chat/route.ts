@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getDb } from "@/lib/db";
-import { getClient, getModel, textOf } from "@/lib/anthropic";
+import { getClient, getModel, textOf, trackUsage } from "@/lib/anthropic";
 import {
   getAttachmentsForMessages,
   saveChatImage,
@@ -103,10 +103,13 @@ export async function POST(req: NextRequest) {
     const response = await getClient().messages.create({
       model,
       max_tokens: 16000,
+      // the whole history (images included) is re-sent every turn - cache the
+      // prefix so the next turn pays ~10% for everything before the new message
+      cache_control: { type: "ephemeral" },
       system: CHAT_SYSTEM + learningsPromptBlock() + winnersPromptBlock(),
       messages: apiMessages,
     });
-    const assistantText = textOf(response);
+    const assistantText = textOf(trackUsage("チャット", response));
 
     const { lastInsertRowid: assistantMessageId } = db
       .prepare(

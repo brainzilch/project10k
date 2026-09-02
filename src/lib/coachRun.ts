@@ -1,5 +1,5 @@
 import { getDb, inTransaction } from "./db";
-import { getClient, getModel, textOf } from "./anthropic";
+import { getClient, getModel, textOf, trackUsage } from "./anthropic";
 import { buildCoachContext } from "./coach";
 
 const COACH_SYSTEM = `あなたはPROJECT 10K（Xアカウントを365日で1,458→10,000フォロワーへ）の専属コーチ。
@@ -77,7 +77,7 @@ export async function runCoach(): Promise<CoachResult> {
     output_config: { format: { type: "json_schema", schema: COACH_SCHEMA } },
     messages: [{ role: "user", content: context }],
   });
-  const data = JSON.parse(textOf(response)) as Record<string, unknown>;
+  const data = JSON.parse(textOf(trackUsage("コーチ", response))) as Record<string, unknown>;
 
   const summary = String(data.summary ?? "").trim();
   const actions = Array.isArray(data.actions)
