@@ -30,6 +30,7 @@ type WeekRow = {
   primaryDays: number;
   minimalEditRate: string;
   impressions: number;
+  replies: number;
 };
 
 export default function WeeklyPage() {
@@ -62,6 +63,15 @@ export default function WeeklyPage() {
   const timeLogs = db
     .prepare("SELECT date, category, minutes FROM time_logs")
     .all() as { date: string; category: string; minutes: number }[];
+  // reply outreach log (今日のリプ先の済), aggregated per week below
+  const replyLogRows = db
+    .prepare("SELECT date, COUNT(*) AS n FROM reply_logs GROUP BY date")
+    .all() as { date: string; n: number }[];
+  const repliesByWeek = new Map<string, number>();
+  for (const r of replyLogRows) {
+    const w = mondayOf(r.date);
+    repliesByWeek.set(w, (repliesByWeek.get(w) ?? 0) + r.n);
+  }
   const learnings = db
     .prepare(
       "SELECT insight, evidence, created_at FROM learnings WHERE active = 1 ORDER BY id DESC",
@@ -127,6 +137,7 @@ export default function WeeklyPage() {
   const weekSet = new Set<string>();
   for (const f of followers) weekSet.add(mondayOf(f.date));
   for (const p of posts) weekSet.add(mondayOf(p.created_at.slice(0, 10)));
+  for (const w of repliesByWeek.keys()) weekSet.add(w);
   const weeks = [...weekSet].sort().reverse();
 
   const rows: WeekRow[] = weeks.map((weekStart) => {
@@ -153,8 +164,24 @@ export default function WeeklyPage() {
           ? `${Math.round((usedEdit.length / primaryFinal.length) * 100)}%`
           : "-",
       impressions: wp.reduce((sum, p) => sum + (impressionsByPost.get(p.id) ?? 0), 0),
+      replies: repliesByWeek.get(weekStart) ?? 0,
     };
   });
+
+  // リプあり週 vs リプ0週の平均純増（増減が測れている週のみ）。
+  // リプあり週が2週たまったら比較を出す
+  const measured = rows.filter((r) => r.netGrowth !== null);
+  const withReplies = measured.filter((r) => r.replies > 0);
+  const withoutReplies = measured.filter((r) => r.replies === 0);
+  const avg = (xs: number[]) =>
+    xs.length ? +(xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : null;
+  const replyComparison =
+    withReplies.length >= 2
+      ? {
+          withAvg: avg(withReplies.map((r) => r.netGrowth ?? 0)),
+          withoutAvg: avg(withoutReplies.map((r) => r.netGrowth ?? 0)),
+        }
+      : null;
 
   // 現在ペース換算: simple arithmetic, only when 30+ days of data exist
   let pace: { growth30: number; projected: number } | null = null;
@@ -207,6 +234,21 @@ export default function WeeklyPage() {
         return (
           <div key={r.weekStart} className="panel">
             <h2 style={{ marginTop: 0 }}>{r.weekStart} の週</h2>
+            <p style={{ margin: "0 0 8px", fontSize: 14 }}>
+              リプ {r.replies}件 ／ 純増{" "}
+              {r.netGrowth !== null
+                ? `${r.netGrowth >= 0 ? "+" : ""}${r.netGrowth}人`
+                : "-人"}{" "}
+              ／ インプ合計 {r.impressions > 0 ? r.impressions.toLocaleString() : "-"}
+              {r.replies === 0 && (
+                <span
+                  className="badge"
+                  style={{ marginLeft: 8, color: "#8b93a3", borderColor: "#2a2f3a" }}
+                >
+                  リプ0の週
+                </span>
+              )}
+            </p>
             <div className="stat-pairs">
               {pairs.map(([label, value]) => (
                 <div key={label}>
@@ -218,6 +260,14 @@ export default function WeeklyPage() {
           </div>
         );
       })}
+
+      {replyComparison && (
+        <div className="panel" style={{ padding: "10px 16px" }}>
+          リプあり週の平均純増{" "}
+          <strong>{replyComparison.withAvg ?? "-"}人</strong> ／ リプ0週の平均純増{" "}
+          <strong>{replyComparison.withoutAvg ?? "-"}人</strong>
+        </div>
+      )}
 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>現在ペース換算</h2>

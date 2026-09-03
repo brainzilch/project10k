@@ -165,6 +165,38 @@ export default async function Dashboard({
   const replyPlan = todayPlan();
   const replyAll = allTargets();
 
+  // プロフ→フォロー転換（直近14日）: 公開投稿のプロフ訪問合計 vs フォロワー実測純増
+  const prof14 = getDb()
+    .prepare(
+      `SELECT COALESCE(SUM(pm.profile_visits), 0) AS visits
+       FROM posts p
+       JOIN (SELECT pm.* FROM post_metrics pm
+             JOIN (SELECT post_id, MAX(measured_at) AS m FROM post_metrics GROUP BY post_id) x
+               ON x.post_id = pm.post_id AND x.m = pm.measured_at) pm ON pm.post_id = p.id
+       WHERE p.status = 'PUBLISHED'
+         AND date(COALESCE(p.published_at, p.created_at), '+9 hours') >= date('now', '+9 hours', '-14 days')`,
+    )
+    .get() as { visits: number };
+  const base14 = getDb()
+    .prepare(
+      `SELECT followers FROM daily_followers
+       WHERE date <= date('now', '+9 hours', '-14 days') ORDER BY date DESC LIMIT 1`,
+    )
+    .get() as { followers: number } | undefined;
+  const followerBase14 = base14?.followers ?? start;
+  const netGrowth14 = current - followerBase14;
+  const profConv = {
+    visits: prof14.visits,
+    net: netGrowth14,
+    rate: prof14.visits > 0 ? +((netGrowth14 / prof14.visits) * 100).toFixed(1) : null,
+    state:
+      prof14.visits < 10
+        ? ("insufficient" as const)
+        : netGrowth14 <= 2
+          ? ("alert" as const)
+          : ("ok" as const),
+  };
+
   const conv30 = getDb()
     .prepare(
       `SELECT COALESCE(SUM(impressions),0) AS imp, COALESCE(SUM(profile_visits),0) AS prof,
@@ -216,6 +248,47 @@ export default async function Dashboard({
         stats={recordingStats}
         autoOpenId={record ? Number(record) : null}
       />
+      <div
+        className="panel"
+        style={{
+          padding: "10px 16px",
+          borderColor: profConv.state === "alert" ? "#f85149" : undefined,
+        }}
+      >
+        {profConv.state === "insufficient" ? (
+          <span className="muted">
+            プロフ→フォロー転換（14日）: データ不足（あと
+            {10 - profConv.visits}件の数字記録で判定）
+          </span>
+        ) : (
+          <>
+            <span style={{ color: profConv.state === "alert" ? "#f85149" : undefined }}>
+              プロフ→フォロー転換（14日）: プロフ訪問 {profConv.visits} ／ 純増{" "}
+              {profConv.net >= 0 ? `+${profConv.net}` : profConv.net}
+              （転換率 {profConv.rate ?? "-"}%）
+            </span>
+            {profConv.state === "alert" && (
+              <span
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  marginTop: 6,
+                }}
+              >
+                <span className="muted" style={{ fontSize: 13 }}>
+                  投稿ではなくプロフィールが原因。bioを診断する
+                </span>
+                <a href="/profile">
+                  <button className="secondary" style={{ fontSize: 13, padding: "2px 10px" }}>
+                    プロフィールへ
+                  </button>
+                </a>
+              </span>
+            )}
+          </>
+        )}
+      </div>
       <ReplyPanel
         quota={replyPlan.quota}
         reason={replyQuota.reason}
