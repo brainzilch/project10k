@@ -30,8 +30,12 @@ export default function XArchiveImport({
         method: "POST",
         body: form,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "取り込みに失敗しました");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        throw new Error(
+          data.error ??
+            `取り込みに失敗しました（HTTP ${res.status}${res.status === 413 ? "・ファイルが大きすぎます" : ""}）`,
+        );
       setMsg(
         `新規${data.added}件を取り込みました（累計${data.stored}件 / ${data.oldest}〜${data.newest}）`,
       );

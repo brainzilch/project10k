@@ -26,8 +26,8 @@ export default function ImportMetricsForm() {
     for (const f of Array.from(files)) form.append("files", f);
     try {
       const res = await fetch("/api/analytics/csv", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "取り込みに失敗しました");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `取り込みに失敗しました（HTTP ${res.status}）`);
       const parts = [];
       if (data.rows > 0)
         parts.push(
