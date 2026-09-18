@@ -14,6 +14,7 @@ export default function ComposePage() {
   const [draftCount, setDraftCount] = useState(1);
   const [feedback, setFeedback] = useState("");
   const [aiEdit, setAiEdit] = useState("");
+  const [styleEdit, setStyleEdit] = useState("");
   const [finalText, setFinalText] = useState("");
   const [step, setStep] = useState<Step>("raw");
   const [busy, setBusy] = useState("");
@@ -57,6 +58,45 @@ export default function ComposePage() {
     setFinalText(rawText);
     setStep("diagnosed");
     await runDiagnosis(id);
+  }
+
+  // 型変換（セリフ型）: 事実は変えずに会話形式へ。1案のみ、採用時に履歴へ記録
+  async function convertToDialogue() {
+    if (!postId) return;
+    setError("");
+    setBusy("converting");
+    const res = await fetch(`/api/posts/${postId}/style-convert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy("");
+    if (!res.ok) {
+      setError(data.error ?? "型変換に失敗しました");
+      return;
+    }
+    setStyleEdit(data.text ?? "");
+  }
+
+  async function adoptStyleEdit() {
+    if (!postId || !styleEdit) return;
+    setBusy("adopting");
+    const res = await fetch(`/api/posts/${postId}/style-convert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adopt: true, text: styleEdit }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy("");
+    if (!res.ok) {
+      setError(data.error ?? "採用に失敗しました");
+      return;
+    }
+    setDraftText(styleEdit);
+    setFinalText(styleEdit);
+    if (typeof data.draft_count === "number") setDraftCount(data.draft_count);
+    setStyleEdit("");
   }
 
   // 書き直しを新しい稿として保存し、その稿を再診断する
@@ -109,6 +149,7 @@ export default function ComposePage() {
     setDraftCount(1);
     setFeedback("");
     setAiEdit("");
+    setStyleEdit("");
     setFinalText("");
     setStep("raw");
     setError("");
@@ -188,6 +229,40 @@ export default function ComposePage() {
             <div className="panel">
               <h2 style={{ marginTop: 0 }}>AI診断（5項目）</h2>
               <pre className="plain">{feedback}</pre>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  className="secondary"
+                  onClick={convertToDialogue}
+                  disabled={busy !== ""}
+                >
+                  {busy === "converting" ? "変換中..." : "セリフ型に変換"}
+                </button>
+                <span className="muted" style={{ fontSize: 13 }}>
+                  事実は変えず、会話形式に書き換える（過去に伸びた型）
+                </span>
+              </div>
+            </div>
+          )}
+
+          {styleEdit && (
+            <div className="panel" style={{ borderColor: "#a371f7" }}>
+              <h2 style={{ marginTop: 0 }}>セリフ型（AI案・1案のみ）</h2>
+              <pre className="plain">{styleEdit}</pre>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <button onClick={adoptStyleEdit} disabled={busy !== ""}>
+                  {busy === "adopting" ? "採用中..." : "この型を採用する"}
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setStyleEdit("")}
+                  disabled={busy !== ""}
+                >
+                  使わない
+                </button>
+              </div>
+              <p className="muted" style={{ marginBottom: 0, fontSize: 13 }}>
+                採用すると原稿と完成版に反映され、推敲履歴に「型変換: セリフ」として残ります
+              </p>
             </div>
           )}
 

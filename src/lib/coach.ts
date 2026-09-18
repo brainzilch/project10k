@@ -75,7 +75,8 @@ export function winnersPromptBlock(): string {
 // Current feature set, told to the coach so app-improvement proposals are
 // grounded in what exists. Update when features are added or changed.
 const APP_FEATURES = `CLIMBの現在の機能:
-- 投稿を書く: 原文→5項目AI診断+提案反映版(1案)→書き直し(全稿記録)→完成版保存/コピー
+- 投稿を書く: 原文→5項目AI診断+提案反映版(1案)→「セリフ型に変換」(アーカイブ上位のセリフ型投稿を
+  参照し事実を変えず会話形式へ1案、採用で推敲履歴に「型変換: セリフ」記録)→書き直し(全稿記録)→完成版
 - AIチャット: 会話全保存・画像添付(ローカル+Google Drive自動保存)
 - 投稿一覧: 推敲タイムライン・数字の手入力とスクショ自動読み取り(投稿ごとの直接ボタンあり)・
   一括アナリティクス取り込み(直接投稿の自動登録含む)・「数字未記録」赤バッジと未記録のみフィルタ・

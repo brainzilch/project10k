@@ -127,9 +127,11 @@ export default async function PostsPage({
       ? "第1稿（原文）"
       : kind === "REWRITE"
         ? `第${draftNumber}稿（書き直し）`
-        : kind === "AI_EDIT"
-          ? "AI提案"
-          : "完成版";
+        : kind === "STYLE_EDIT"
+          ? `第${draftNumber}稿（型変換: セリフ）`
+          : kind === "AI_EDIT"
+            ? "AI提案"
+            : "完成版";
 
   return (
     <div>
@@ -243,12 +245,14 @@ export default async function PostsPage({
               <>
                 <h2>推敲の記録</h2>
                 {revisions.map((r) => {
-                  if (r.kind === "RAW" || r.kind === "REWRITE") draftNumber++;
+                  if (r.kind === "RAW" || r.kind === "REWRITE" || r.kind === "STYLE_EDIT")
+                    draftNumber++;
                   return (
                     <div key={r.revision} style={{ marginBottom: 12 }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span
                           className={`badge ${r.kind === "FINAL" ? "ok" : r.kind === "AI_EDIT" ? "" : "warn"}`}
+                          style={r.kind === "STYLE_EDIT" ? { borderColor: "#a371f7", color: "#a371f7" } : undefined}
                         >
                           {kindLabel(r.kind, draftNumber)}
                         </span>

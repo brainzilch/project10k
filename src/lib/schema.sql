@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS post_revisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   post_id INTEGER NOT NULL REFERENCES posts(id),
   revision INTEGER NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('RAW', 'REWRITE', 'AI_EDIT', 'FINAL')),
+  kind TEXT NOT NULL CHECK (kind IN ('RAW', 'REWRITE', 'AI_EDIT', 'FINAL', 'STYLE_EDIT')),
   text TEXT NOT NULL,
   ai_feedback TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

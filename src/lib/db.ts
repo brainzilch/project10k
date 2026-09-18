@@ -112,6 +112,48 @@ function migrate(db: DatabaseSync) {
   if (!postColumnsAfter.some((c) => c.name === "x_url")) {
     db.exec("ALTER TABLE posts ADD COLUMN x_url TEXT");
   }
+  // post_revisions gained the STYLE_EDIT kind (型変換). The CHECK is baked
+  // into the table, so adding a value needs a rebuild (SQLite 12-step).
+  const revisionsSql = (
+    db
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'post_revisions'",
+      )
+      .get() as { sql: string } | undefined
+  )?.sql;
+  if (revisionsSql && !revisionsSql.includes("STYLE_EDIT")) {
+    db.exec("PRAGMA foreign_keys = OFF");
+    db.exec("BEGIN");
+    try {
+      db.exec(`CREATE TABLE post_revisions_migrated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL REFERENCES posts(id),
+        revision INTEGER NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('RAW', 'REWRITE', 'AI_EDIT', 'FINAL', 'STYLE_EDIT')),
+        text TEXT NOT NULL,
+        ai_feedback TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      db.exec(`INSERT INTO post_revisions_migrated
+        (id, post_id, revision, kind, text, ai_feedback, created_at)
+        SELECT id, post_id, revision, kind, text, ai_feedback, created_at
+        FROM post_revisions`);
+      db.exec("DROP TABLE post_revisions");
+      db.exec("ALTER TABLE post_revisions_migrated RENAME TO post_revisions");
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_post_revisions_post ON post_revisions(post_id)",
+      );
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      console.error(
+        `[climb] post_revisions migration failed: ${e instanceof Error ? e.message : e}`,
+      );
+    } finally {
+      db.exec("PRAGMA foreign_keys = ON");
+    }
+  }
+
   const followerColumns = db
     .prepare("PRAGMA table_info(daily_followers)")
     .all() as { name: string }[];
