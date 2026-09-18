@@ -8,6 +8,7 @@ import DriveTools from "./DriveTools";
 import ReminderSettings from "./ReminderSettings";
 import XArchiveImport from "./XArchiveImport";
 import PushSettings from "./PushSettings";
+import FollowerAutoSettings from "./FollowerAutoSettings";
 import { subscriptionCount } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
@@ -106,6 +107,16 @@ export default function SettingsPage() {
           rootFolderId={driveFolder}
           pendingCount={pendingCount}
           failedCount={failedCount}
+        />
+      </div>
+
+      <div className="panel">
+        <h2 style={{ marginTop: 0 }}>フォロワー数の自動取得</h2>
+        <FollowerAutoSettings
+          handle={getSetting("x_handle", "brainzilch")}
+          enabled={getSetting("follower_auto_enabled", "1") === "1"}
+          lastSource={getSetting("follower_auto_source", "")}
+          lastDate={getSetting("follower_auto_date", "")}
         />
       </div>
 

@@ -53,6 +53,13 @@ export async function register() {
               `[climb] coach tick failed: ${e instanceof Error ? e.message : e}`,
             ),
           );
+        import("./lib/followerFetch")
+          .then((m) => m.followerFetchTick())
+          .catch((e) =>
+            console.error(
+              `[climb] follower fetch tick failed: ${e instanceof Error ? e.message : e}`,
+            ),
+          );
         import("./lib/push")
           .then((m) => m.pushTick())
           .catch((e) =>

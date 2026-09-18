@@ -98,7 +98,9 @@ export async function pushTick(): Promise<void> {
     (Number.isFinite(h) ? h : 22) * 60 + (Number.isFinite(m) ? m : 0);
   if (minutes >= reminderMinutes) {
     const entered = db
-      .prepare("SELECT 1 FROM daily_followers WHERE date = ? AND source = 'MANUAL'")
+      .prepare(
+        "SELECT 1 FROM daily_followers WHERE date = ? AND source IN ('MANUAL', 'AUTO')",
+      )
       .get(today);
     if (!entered) {
       await pushOnce("followers", today, {

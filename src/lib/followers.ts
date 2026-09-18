@@ -6,9 +6,12 @@ import { getDb, inTransaction } from "./db";
 // recomputed whenever a new anchor or new daily stats arrive.
 export function deriveFollowersFromDailyStats(): number {
   const db = getDb();
+  // MANUAL (typed) and AUTO (fetched) are both measured values - they anchor
+  // the estimate; only DERIVED rows are recomputed.
   const anchors = db
     .prepare(
-      "SELECT date, followers FROM daily_followers WHERE source = 'MANUAL' ORDER BY date ASC",
+      `SELECT date, followers FROM daily_followers
+       WHERE source IN ('MANUAL', 'AUTO') ORDER BY date ASC`,
     )
     .all() as { date: string; followers: number }[];
   if (anchors.length === 0) return 0;

@@ -1,6 +1,8 @@
 import { getDb } from "@/lib/db";
 import FollowerChart from "@/components/FollowerChart";
 import FollowerForm from "./FollowerForm";
+import AutoFetchButton from "./AutoFetchButton";
+import { getSetting } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -56,10 +58,11 @@ export default function FollowersPage() {
     <div>
       <h1>フォロワー記録</h1>
       <p className="muted" style={{ marginTop: -8 }}>
-        連続記録 {streak}日（推定=アナリティクスCSVの増減から自動補完）
+        連続記録 {streak}日（自動=毎日の自動取得／推定=アナリティクスCSVの増減から補完）
         {profileChangeDates.length > 0 && "　／　黄点線=プロフィール変更日"}
         {pinnedChangeDates.length > 0 && "　／　紫点線=固定ポスト変更日"}
       </p>
+      <AutoFetchButton autoEnabled={getSetting("follower_auto_enabled", "1") === "1"} />
       <FollowerForm today={today} />
       <div className="panel">
         <FollowerChart data={rows} markers={markers} />
@@ -81,6 +84,11 @@ export default function FollowersPage() {
                   {r.source === "DERIVED" && (
                     <span className="muted" style={{ fontSize: 12 }}>
                       　推定
+                    </span>
+                  )}
+                  {r.source === "AUTO" && (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      　自動
                     </span>
                   )}
                 </td>

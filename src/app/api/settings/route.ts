@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { setSetting } from "@/lib/db";
 
 // Only whitelisted keys - API keys and tokens are NEVER stored in the DB.
-const ALLOWED_KEYS = ["claude_model", "push_reminder_time"];
+const ALLOWED_KEYS = [
+  "claude_model",
+  "push_reminder_time",
+  "x_handle",
+  "follower_auto_enabled",
+];
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
