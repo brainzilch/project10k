@@ -205,8 +205,9 @@ export function useIdea(id: number): number | null {
 // is low.
 export async function autoDevStoryTick(): Promise<void> {
   if (!process.env.ANTHROPIC_API_KEY) return;
+  // at or after 20:00 JST (catch-up friendly - see report.ts)
   const jstHour = new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
-  if (jstHour !== 20) return;
+  if (jstHour < 20) return;
   const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   if (getSetting("devstory_last_auto_date", "") === today) return;
   if (openIdeas().length >= 2) return;

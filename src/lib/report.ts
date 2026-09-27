@@ -370,8 +370,10 @@ export async function generateReport(due?: {
 // earlier draft is still waiting for review.
 export async function autoReportTick(): Promise<void> {
   if (!process.env.ANTHROPIC_API_KEY) return;
+  // at or after 20:00 JST, not exactly within that hour: a server that is
+  // asleep or restarting at 20:00 still catches up later the same day
   const jstHour = new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
-  if (jstHour !== 20) return;
+  if (jstHour < 20) return;
   const today = jstToday();
   if (getSetting("report_last_auto_date", "") === today) return;
   if (pendingReport()) return;

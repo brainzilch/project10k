@@ -135,10 +135,17 @@ export async function runCoach(): Promise<CoachResult> {
 export async function autoCoachTick(): Promise<void> {
   if (!process.env.ANTHROPIC_API_KEY) return;
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  if (jst.getUTCDay() !== 1 || jst.getUTCHours() !== 20) return;
+  if (jst.getUTCHours() < 20) return;
   const today = jst.toISOString().slice(0, 10);
   const { getSetting, setSetting } = await import("./db");
-  if (getSetting("coach_last_auto_date", "") === today) return;
+  const last = getSetting("coach_last_auto_date", "");
+  if (last === today) return;
+  // Monday evening normally; if the app was not running that evening, catch
+  // up on the first evening after a week has passed
+  const overdue =
+    last !== "" &&
+    Date.now() - Date.parse(last + "T00:00:00Z") >= 7 * 86400000;
+  if (jst.getUTCDay() !== 1 && !overdue) return;
   setSetting("coach_last_auto_date", today);
   const r = await runCoach();
   console.log(`[climb] weekly coach run: ${r.actions.length} actions, ${r.learnings.length} learnings`);
