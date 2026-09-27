@@ -21,15 +21,17 @@ export default function ReplyPanel({
   targets,
   done,
   all,
+  forceManage = false,
 }: {
   quota: number;
   reason: string;
   targets: Target[];
   done: number;
   all: Target[];
+  forceManage?: boolean;
 }) {
   const router = useRouter();
-  const [manage, setManage] = useState(all.length === 0);
+  const [manage, setManage] = useState(forceManage || all.length === 0);
   const [handle, setHandle] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,7 @@ export default function ReplyPanel({
   const accent = complete ? "#3fb950" : done === 0 ? "#d29922" : "#e6edf3";
 
   return (
-    <div className="panel" style={{ borderColor: complete ? "#3fb950" : undefined }}>
+    <div id="reply" className="panel" style={{ borderColor: complete ? "#3fb950" : undefined }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <strong style={{ color: accent }}>
           今日のリプ先 {done}/{quota}

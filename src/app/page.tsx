@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ record?: string }>;
+  searchParams: Promise<{ record?: string; reply?: string }>;
 }) {
-  const { record } = await searchParams;
+  const { record, reply } = await searchParams;
   // auto-register any screenshots dropped into data/inbox since last visit,
   // and re-send assets whose Drive upload is pending or failed (spec section 6)
   try {
@@ -164,6 +164,18 @@ export default async function Dashboard({
   const replyQuota = evaluateReplyQuota();
   const replyPlan = todayPlan();
   const replyAll = allTargets();
+  // Hard gate: the reply channel only works with enough targets and actual
+  // execution. Shown above everything until both hold; cannot be dismissed.
+  const replies7 = (
+    getDb()
+      .prepare(
+        "SELECT COUNT(*) AS n FROM reply_logs WHERE date >= date('now', '+9 hours', '-7 days')",
+      )
+      .get() as { n: number }
+  ).n;
+  const activeTargets = replyAll.filter((t) => t.active === 1).length;
+  const neededTargets = replyPlan.quota * 3;
+  const replyGate = replies7 === 0 || activeTargets < neededTargets;
 
   // プロフ→フォロー転換（直近14日）: 公開投稿のプロフ訪問合計 vs フォロワー実測純増
   const prof14 = getDb()
@@ -215,6 +227,25 @@ export default async function Dashboard({
   return (
     <div>
       <h1>{meta.project_name}</h1>
+      {replyGate && (
+        <div className="panel" style={{ borderColor: "#f85149" }}>
+          <strong style={{ color: "#f85149" }}>
+            リプ先が足りません：登録{activeTargets}件／必要{neededTargets}件
+          </strong>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
+            直近7日のリプ実施 {replies7}件（枠{replyPlan.quota}件/日）。
+            小さいアカウントの最大の露出経路がまだ動いていません
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+            <a href="/?reply=manage#reply">
+              <button>リプ先を追加</button>
+            </a>
+            <span className="muted" style={{ fontSize: 12 }}>
+              7日でリプ1件以上、かつ登録{neededTargets}件以上になるまで消えません
+            </span>
+          </div>
+        </div>
+      )}
       <p className="muted">
         {start.toLocaleString()} → {goal.toLocaleString()}
       </p>
@@ -295,6 +326,7 @@ export default async function Dashboard({
         targets={replyPlan.targets}
         done={replyPlan.done}
         all={replyAll}
+        forceManage={reply === "manage"}
       />
       <ReportPanel pending={pendingReport()} />
       <DevStoriesPanel ideas={openIdeas()} />
