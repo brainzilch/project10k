@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import CopyButton from "@/components/CopyButton";
+import PostWarnings from "@/components/PostWarnings";
 
 type Step = "raw" | "diagnosed" | "done";
 
@@ -291,6 +292,9 @@ export default function ComposePage() {
               value={finalText}
               onChange={(e) => setFinalText(e.target.value)}
             />
+            <div style={{ marginTop: 8 }}>
+              <PostWarnings text={finalText} />
+            </div>
             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <button onClick={() => saveFinal(false)} disabled={!finalText.trim() || busy !== ""}>
                 完成版を保存

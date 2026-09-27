@@ -320,8 +320,12 @@ export default async function PostsPage({
 
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <MetricsForm postId={p.id} autoOpen={record === String(p.id)} />
-            {p.status === "FINAL" && <PublishButton postId={p.id} />}
-            {p.status === "DRAFT" && <DraftActions postId={p.id} />}
+            {p.status === "FINAL" && (
+              <PublishButton postId={p.id} text={p.final_text ?? p.raw_text} />
+            )}
+            {p.status === "DRAFT" && (
+              <DraftActions postId={p.id} text={p.final_text ?? p.raw_text} />
+            )}
           </div>
         </div>
         </SwipeablePost>

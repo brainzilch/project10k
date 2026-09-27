@@ -34,6 +34,8 @@ export default function ReplyPanel({
   const [manage, setManage] = useState(forceManage || all.length === 0);
   const [handle, setHandle] = useState("");
   const [note, setNote] = useState("");
+  const [bulk, setBulk] = useState("");
+  const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -56,11 +58,57 @@ export default function ReplyPanel({
     }
   }
 
+  async function bulkAdd() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/reply/targets/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: bulk }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "失敗しました");
+      setToast(
+        `${data.added}件追加／${data.duplicates}件重複${data.invalid ? `／${data.invalid}件無効` : ""}`,
+      );
+      setTimeout(() => setToast(""), 4000);
+      setBulk("");
+      router.refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const activeCount = all.filter((t) => t.active === 1).length;
+  const needed = quota * 3;
+  const shortage = activeCount < needed;
   const complete = all.some((t) => t.active === 1) && done >= quota;
   const accent = complete ? "#3fb950" : done === 0 ? "#d29922" : "#e6edf3";
 
   return (
     <div id="reply" className="panel" style={{ borderColor: complete ? "#3fb950" : undefined }}>
+      {shortage && (
+        <div
+          onClick={() => {
+            setManage(true);
+            document.getElementById("reply-bulk")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          style={{
+            background: "#3b1219",
+            border: "1px solid #f85149",
+            color: "#ffb3b3",
+            borderRadius: 6,
+            padding: "6px 10px",
+            fontSize: 13,
+            marginBottom: 8,
+            cursor: "pointer",
+          }}
+        >
+          登録{activeCount}件では枠{quota}件/日を回せません。あと{needed - activeCount}件追加 →
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <strong style={{ color: accent }}>
           今日のリプ先 {done}/{quota}
@@ -154,6 +202,25 @@ export default function ReplyPanel({
             >
               追加
             </button>
+          </div>
+          <div id="reply-bulk" style={{ marginTop: 10 }}>
+            <textarea
+              rows={4}
+              value={bulk}
+              onChange={(e) => setBulk(e.target.value)}
+              placeholder={"まとめて追加: 1行に1つ\n@handle / handle / https://x.com/handle どれでも可"}
+              style={{ fontSize: 14 }}
+            />
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+              <button disabled={busy || !bulk.trim()} onClick={bulkAdd}>
+                まとめて追加
+              </button>
+              {toast && (
+                <span className="badge ok" style={{ fontSize: 13 }}>
+                  {toast}
+                </span>
+              )}
+            </div>
           </div>
           {all.length > 0 && (
             <div style={{ marginTop: 8 }}>
