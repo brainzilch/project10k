@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import DiscoverButton from "./DiscoverButton";
 
 type Target = {
   id: number;
@@ -22,6 +23,8 @@ export default function ReplyPanel({
   done,
   all,
   forceManage = false,
+  autoDiscover = true,
+  discoverStatus = "",
 }: {
   quota: number;
   reason: string;
@@ -29,6 +32,8 @@ export default function ReplyPanel({
   done: number;
   all: Target[];
   forceManage?: boolean;
+  autoDiscover?: boolean;
+  discoverStatus?: string;
 }) {
   const router = useRouter();
   const [manage, setManage] = useState(forceManage || all.length === 0);
@@ -107,6 +112,11 @@ export default function ReplyPanel({
           }}
         >
           登録{activeCount}件では枠{quota}件/日を回せません。あと{needed - activeCount}件追加 →
+        </div>
+      )}
+      {shortage && (
+        <div style={{ marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
+          <DiscoverButton />
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -221,6 +231,23 @@ export default function ReplyPanel({
                 </span>
               )}
             </div>
+          </div>
+          <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                defaultChecked={autoDiscover}
+                onChange={(e) =>
+                  call("/api/settings", "POST", {
+                    key: "reply_auto_discover",
+                    value: e.target.checked ? "1" : "0",
+                  })
+                }
+              />
+              不足時は毎朝7時以降に自動で探す
+            </label>
+            <DiscoverButton secondary />
+            {discoverStatus && <span className="muted" style={{ fontSize: 12 }}>{discoverStatus}</span>}
           </div>
           {all.length > 0 && (
             <div style={{ marginTop: 8 }}>

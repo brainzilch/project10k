@@ -1,10 +1,11 @@
-import { getDb, getMeta } from "@/lib/db";
+import { getDb, getMeta, getSetting } from "@/lib/db";
 import { ingestInbox } from "@/lib/inbox";
 import { retryPendingUploads } from "@/lib/drive";
 import { pendingReport } from "@/lib/report";
 import { openIdeas } from "@/lib/devstory";
 import { allTargets, evaluateReplyQuota, todayPlan } from "@/lib/reply";
 import ReplyPanel from "./ReplyPanel";
+import DiscoverButton from "./DiscoverButton";
 import AwaitingCard from "./AwaitingCard";
 import CoachPanel from "./CoachPanel";
 import DevStoriesPanel from "./DevStoriesPanel";
@@ -237,8 +238,9 @@ export default async function Dashboard({
             小さいアカウントの最大の露出経路がまだ動いていません
           </p>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+            <DiscoverButton />
             <a href="/?reply=manage#reply">
-              <button>リプ先を追加</button>
+              <button className="secondary">手で追加</button>
             </a>
             <span className="muted" style={{ fontSize: 12 }}>
               7日でリプ1件以上、かつ登録{neededTargets}件以上になるまで消えません
@@ -327,6 +329,12 @@ export default async function Dashboard({
         done={replyPlan.done}
         all={replyAll}
         forceManage={reply === "manage"}
+        autoDiscover={getSetting("reply_auto_discover", "1") === "1"}
+        discoverStatus={
+          getSetting("reply_discover_last", "")
+            ? `前回の自動探索 ${getSetting("reply_discover_last", "").slice(0, 10)}: ${getSetting("reply_discover_last_result", "")}`
+            : ""
+        }
       />
       <ReportPanel pending={pendingReport()} />
       <DevStoriesPanel ideas={openIdeas()} />

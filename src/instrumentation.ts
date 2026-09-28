@@ -60,6 +60,13 @@ export async function register() {
               `[climb] follower fetch tick failed: ${e instanceof Error ? e.message : e}`,
             ),
           );
+        import("./lib/replyDiscovery")
+          .then((m) => m.replyDiscoveryTick())
+          .catch((e) =>
+            console.error(
+              `[climb] reply discovery tick failed: ${e instanceof Error ? e.message : e}`,
+            ),
+          );
         import("./lib/push")
           .then((m) => m.pushTick())
           .catch((e) =>

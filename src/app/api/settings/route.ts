@@ -6,6 +6,7 @@ const ALLOWED_KEYS = [
   "claude_model",
   "push_reminder_time",
   "x_handle",
+  "reply_auto_discover",
   "follower_auto_enabled",
 ];
 

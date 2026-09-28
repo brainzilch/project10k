@@ -72,6 +72,86 @@ async function fromApi(handle: string): Promise<number | null> {
   return plausible(n) ? n : null;
 }
 
+// Public profile facts for an arbitrary handle (reply-target discovery).
+// Same no-login endpoints as above; everything is parsed defensively and
+// missing fields come back null rather than failing.
+export type PublicProfile = {
+  exists: boolean;
+  followers: number | null;
+  lastPostAt: string | null; // ISO date
+  postsIn30d: number | null;
+  jaRatio: number | null; // share of recent posts tagged lang ja
+  bio: string | null;
+  // true when nothing could be fetched at all (network/timeout/5xx) - the
+  // caller must not treat that as "account does not exist"
+  fetchError: boolean;
+};
+
+export async function fetchPublicProfile(handle: string): Promise<PublicProfile> {
+  const out: PublicProfile = {
+    exists: false,
+    followers: null,
+    lastPostAt: null,
+    postsIn30d: null,
+    jaRatio: null,
+    bio: null,
+    fetchError: false,
+  };
+  let reached = false;
+  try {
+    const res = await fetch(
+      `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}`,
+      { headers: { "User-Agent": "Mozilla/5.0 (CLIMB)" }, signal: AbortSignal.timeout(15000) },
+    );
+    if (res.ok || res.status === 404) reached = true;
+    if (res.ok) {
+      const html = await res.text();
+      const f = html.match(/"followers_count"\s*:\s*(\d+)/);
+      if (f && plausible(Number(f[1]))) {
+        out.exists = true;
+        out.followers = Number(f[1]);
+      }
+      const bio = html.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if (bio) {
+        try {
+          out.bio = JSON.parse(`"${bio[1]}"`).slice(0, 200);
+        } catch {}
+      }
+      // tweet timestamps: the newest is the last post; count the last 30 days
+      const dates: number[] = [];
+      for (const m of html.matchAll(/"created_at"\s*:\s*"([^"]+)"/g)) {
+        const t = Date.parse(m[1]);
+        if (Number.isFinite(t)) dates.push(t);
+      }
+      if (dates.length > 0) {
+        const newest = Math.max(...dates);
+        out.lastPostAt = new Date(newest).toISOString().slice(0, 10);
+        const cutoff = Date.now() - 30 * 86400000;
+        // the account's own created_at is in there too; it only matters if it
+        // is within 30 days, in which case counting it as a post is harmless
+        out.postsIn30d = dates.filter((d) => d >= cutoff).length;
+        out.exists = true;
+      }
+      const langs = [...html.matchAll(/"lang"\s*:\s*"([a-z]{2,3})"/g)].map((m) => m[1]);
+      if (langs.length > 0) {
+        out.jaRatio = langs.filter((l) => l === "ja").length / langs.length;
+      }
+    }
+  } catch {}
+  if (out.followers === null) {
+    try {
+      const n = await fromWidget(handle);
+      reached = true;
+      if (n !== null) {
+        out.exists = true;
+        out.followers = n;
+      }
+    } catch {}
+  }
+  if (!out.exists && !reached) out.fetchError = true;
+  return out;
+}
+
 export async function fetchFollowerCount(): Promise<FetchResult> {
   const handle = getHandle();
   const sources: [string, (h: string) => Promise<number | null>][] = [

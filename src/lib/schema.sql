@@ -317,3 +317,17 @@ CREATE TABLE IF NOT EXISTS time_logs (
   minutes INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Reply-target discovery: every handle the automatic search has looked at,
+-- with the verdict, so no account is checked twice and rejections are kept.
+CREATE TABLE IF NOT EXISTS reply_candidates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  handle TEXT NOT NULL UNIQUE,
+  source TEXT NOT NULL CHECK (source IN ('ARCHIVE', 'AI')),
+  reason TEXT,
+  status TEXT NOT NULL CHECK (status IN ('ADDED', 'REJECTED', 'INVALID')),
+  followers INTEGER,
+  last_post_at TEXT,
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
