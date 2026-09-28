@@ -6,12 +6,14 @@ import { Suspense, useState } from "react";
 function DriveToolsInner({
   configured,
   connected,
+  needsReauth,
   rootFolderId,
   pendingCount,
   failedCount,
 }: {
   configured: boolean;
   connected: boolean;
+  needsReauth: boolean;
   rootFolderId: string;
   pendingCount: number;
   failedCount: number;
@@ -50,7 +52,9 @@ function DriveToolsInner({
     <div>
       <p style={{ marginTop: 0 }}>
         状態:{" "}
-        {connected ? (
+        {connected && needsReauth ? (
+          <span className="badge err">再接続が必要</span>
+        ) : connected ? (
           <span className="badge ok">接続済み</span>
         ) : (
           <span className="badge warn">未接続</span>
@@ -72,7 +76,25 @@ function DriveToolsInner({
           </a>
         </p>
       )}
+      {connected && needsReauth && (
+        <div
+          className="panel"
+          style={{ borderColor: "#f85149", color: "#f85149", padding: "10px 12px", fontSize: 14 }}
+        >
+          Googleが保存済みの接続を失効させました。下の「Google Driveに再接続」で復旧します。
+          <br />
+          <span className="muted">
+            Google Cloud の OAuth 同意画面が「テスト」のままだと接続は7日で切れます。
+            「アプリを公開」に切り替えると恒久化します（利用者は自分だけなので審査は不要）。
+          </span>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {connected && needsReauth && (
+          <button onClick={() => (window.location.href = "/api/drive/oauth/start")}>
+            Google Driveに再接続
+          </button>
+        )}
         {!connected && (
           <button onClick={() => (window.location.href = "/api/drive/oauth/start")}>
             Google Driveに接続
@@ -133,6 +155,7 @@ function DriveToolsInner({
 export default function DriveTools(props: {
   configured: boolean;
   connected: boolean;
+  needsReauth: boolean;
   rootFolderId: string;
   pendingCount: number;
   failedCount: number;

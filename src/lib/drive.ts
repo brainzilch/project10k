@@ -47,6 +47,18 @@ export function driveConnected(): boolean {
   return driveConfigured() && fs.existsSync(TOKEN_PATH);
 }
 
+// Set when Google rejected the stored refresh token (invalid_grant). The
+// usual cause is an OAuth consent screen still in "Testing" status, whose
+// refresh tokens expire after 7 days. Cleared by a successful refresh or a
+// new connection. The token file is kept - nothing is deleted automatically.
+export function driveNeedsReauth(): boolean {
+  return driveConnected() && getSetting("drive_reauth_reason", "") !== "";
+}
+
+export function clearDriveReauth() {
+  setSetting("drive_reauth_reason", "");
+}
+
 type TokenData = {
   refresh_token: string;
   access_token: string;
@@ -95,9 +107,17 @@ async function getAccessToken(): Promise<string> {
       grant_type: "refresh_token",
     }),
   });
-  if (!res.ok) throw new Error(`Drive token refresh failed (${res.status})`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (body.error === "invalid_grant") {
+      setSetting("drive_reauth_reason", "invalid_grant");
+      throw new Error("Google Driveの接続が失効しました。設定から再接続してください");
+    }
+    throw new Error(`Drive token refresh failed (${res.status})`);
+  }
   const data = await res.json();
   saveTokens({ access_token: data.access_token, expires_in: data.expires_in });
+  clearDriveReauth();
   return data.access_token;
 }
 

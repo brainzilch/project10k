@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  clearDriveReauth,
   ensureFolderStructure,
   publicOrigin,
   redirectUriFor,
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
       access_token: tokens.access_token,
       expires_in: tokens.expires_in,
     });
+    clearDriveReauth();
 
     // OAuth完了後にPROJECT_10Kフォルダ構成を作成または既存取得（spec section 31）
     await ensureFolderStructure();

@@ -1,7 +1,7 @@
 import { DB_PATH, getDb, getSetting } from "@/lib/db";
 import { DEFAULT_MODEL, monthlyUsage } from "@/lib/anthropic";
 import { INBOX_DIR } from "@/lib/inbox";
-import { driveConfigured, driveConnected } from "@/lib/drive";
+import { driveConfigured, driveConnected, driveNeedsReauth } from "@/lib/drive";
 import { BackupButton, ModelForm } from "./SettingsForm";
 import CaptureTools from "./CaptureTools";
 import DriveTools from "./DriveTools";
@@ -104,6 +104,7 @@ export default function SettingsPage() {
         <DriveTools
           configured={driveConfigured()}
           connected={driveConnected()}
+          needsReauth={driveNeedsReauth()}
           rootFolderId={driveFolder}
           pendingCount={pendingCount}
           failedCount={failedCount}
