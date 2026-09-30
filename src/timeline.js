@@ -62,18 +62,18 @@ export const CAMS = {
   overviewHigh2: { pos: [19, 28, 39], target: [7, 0, -1] },
   complete: { pos: [19, 22, 33], target: [6, 0, -1] },
   complete2: { pos: [17, 21, 31], target: [6, 0, -1] },
-  storage: { pos: [21, 11, 31], target: [7, 0.5, 15] },
-  storage2: { pos: [19, 10.5, 29], target: [7, 0.5, 15] },
+  storage: { pos: [19, 9.5, 9], target: [6, 1.0, -18] },
+  storage2: { pos: [17, 9, 7], target: [6, 1.0, -18] },
   exhibit: { pos: [25, 10, 19], target: [11, 0.6, 3] },
   exhibit2: { pos: [23, 9.5, 18], target: [11, 0.6, 3] },
-  move: { pos: [27, 15, 27], target: [9, 0.5, 9] },
+  move: { pos: [27, 15, 20], target: [9, 0.5, -8] },
   top: { pos: [9.5, 72, 4.5], target: [9.5, 0, 4.5], up: [0, 0, -1] },
   foldClose: { pos: [-0.5, 4.8, 24], target: [-4.6, 0.2, 13.5] },
   foldClose2: { pos: [-1.5, 4.4, 22.5], target: [-4.9, 0.2, 13.5] },
   chairs: { pos: [27, 13, 25], target: [4, 0, -1] },
   chairs2: { pos: [24, 12, 22], target: [4, 0, -1] },
-  piano: { pos: [15, 8, 23], target: [1, 0.6, 4] },
-  piano2: { pos: [11, 6.5, 19], target: [0, 0.6, 2.5] },
+  piano: { pos: [16, 9, 15], target: [1, 0.6, -5] },
+  piano2: { pos: [11, 7, 12], target: [0, 0.6, -2] },
 };
 
 /** [t0, t1, from, to] のリストからカメラを決める。区間の切り替えはカット。 */

@@ -405,7 +405,14 @@ export function makeTextSprite(text, opts = {}) {
   g.lineWidth = 10;
   g.stroke();
   g.fillStyle = opts.fg || '#ffffff';
-  g.font = `bold ${opts.fontSize || 96}px "Noto Sans JP","Hiragino Sans","Yu Gothic","IPAGothic",sans-serif`;
+  // 文字数に応じてフォントを縮めて枠内に収める
+  let fs = opts.fontSize || 96;
+  const family = '"Noto Sans JP","Hiragino Sans","Yu Gothic","IPAGothic",sans-serif';
+  g.font = `bold ${fs}px ${family}`;
+  while (g.measureText(text).width > c.width - 80 && fs > 40) {
+    fs -= 4;
+    g.font = `bold ${fs}px ${family}`;
+  }
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText(text, c.width / 2, c.height / 2 + 6);

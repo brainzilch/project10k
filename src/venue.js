@@ -151,17 +151,34 @@ export function buildVenue() {
     m.receiveShadow = true;
     return m;
   };
-  // 南側（z+, 帯1側）: 扉の開口を残す
+  // 収納庫のある側（storage.side）の壁には扉の開口を残す
   const dz = storage.door;
   const dHalf = dz.width / 2;
-  south.add(lowWall(venue.stage.xBack, dz.x - dHalf, f.zMax + 0.15));
-  south.add(lowWall(dz.x + dHalf, f.xMax, f.zMax + 0.15));
+  const storageIsSouth = dz.z > 0;
+  const doorWallZ = storageIsSouth ? f.zMax + 0.15 : f.zMin - 0.15;
+  const doorParent = storageIsSouth ? south : group;
+  // 収納庫の前の壁は半透明にして中（ロール・ピアノ・展示物）が見えるようにする
+  const roomW0 = storage.room.width;
+  const rx0 = storage.anchor.x + 1.5 - roomW0 / 2;
+  const rx1 = storage.anchor.x + 1.5 + roomW0 / 2;
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xcfc9bb, roughness: 0.9, transparent: true, opacity: 0.35, depthWrite: false });
+  const lowWallGlass = (x0, x1, z) => {
+    const m = lowWall(x0, x1, z);
+    m.material = glassMat;
+    m.castShadow = false;
+    return m;
+  };
+  doorParent.add(lowWall(venue.stage.xBack, rx0, doorWallZ));
+  doorParent.add(lowWallGlass(rx0, dz.x - dHalf, doorWallZ));
+  doorParent.add(lowWallGlass(dz.x + dHalf, rx1, doorWallZ));
+  doorParent.add(lowWall(rx1, f.xMax, doorWallZ));
   // 扉のまぐさ（開口の上）
   const lintel = new THREE.Mesh(new THREE.BoxGeometry(dz.width, lowH - dz.height, 0.3), lowMat);
-  lintel.position.set(dz.x, dz.height + (lowH - dz.height) / 2, f.zMax + 0.15);
-  south.add(lintel);
-  // 北側（z-）
-  group.add(lowWall(venue.stage.xBack, f.xMax, f.zMin - 0.15));
+  lintel.position.set(dz.x, dz.height + (lowH - dz.height) / 2, doorWallZ);
+  doorParent.add(lintel);
+  // 反対側の壁
+  if (storageIsSouth) group.add(lowWall(venue.stage.xBack, f.xMax, f.zMin - 0.15));
+  else south.add(lowWall(venue.stage.xBack, f.xMax, f.zMax + 0.15));
   // 東側（x+, ステージの反対側）
   const eWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, lowH, D + 0.6), lowMat);
   eWall.position.set(f.xMax + 0.15, lowH / 2, cz);
@@ -349,31 +366,32 @@ export function buildVenue() {
   const roomW = storage.room.width;
   const roomD = storage.room.depth;
   const room = new THREE.Mesh(new THREE.BoxGeometry(roomW, lowH - 0.05, roomD), stMat);
-  room.position.set(storage.anchor.x + 1.5, (lowH - 0.05) / 2, f.zMax + 0.3 + roomD / 2);
+  const roomZ = storageIsSouth ? f.zMax + 0.3 + roomD / 2 : f.zMin - 0.3 - roomD / 2;
+  room.position.set(storage.anchor.x + 1.5, (lowH - 0.05) / 2, roomZ);
   room.name = 'storageRoom';
   group.add(room);
   const roomFloor = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomD), new THREE.MeshStandardMaterial({ color: 0xa5a29a }));
   roomFloor.rotation.x = -Math.PI / 2;
-  roomFloor.position.set(storage.anchor.x + 1.5, 0.01, f.zMax + 0.3 + roomD / 2);
+  roomFloor.position.set(storage.anchor.x + 1.5, 0.01, roomZ);
   roomFloor.receiveShadow = true;
   group.add(roomFloor);
   // 扉の枠（黄色の目印）
   const frameMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, roughness: 0.6 });
   const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.15, dz.height, 0.4), frameMat);
-  frameL.position.set(dz.x - dHalf - 0.07, dz.height / 2, f.zMax + 0.15);
+  frameL.position.set(dz.x - dHalf - 0.07, dz.height / 2, doorWallZ);
   group.add(frameL);
   const frameR = frameL.clone();
   frameR.position.x = dz.x + dHalf + 0.07;
   group.add(frameR);
   const frameT = new THREE.Mesh(new THREE.BoxGeometry(dz.width + 0.3, 0.15, 0.4), frameMat);
-  frameT.position.set(dz.x, dz.height + 0.07, f.zMax + 0.15);
+  frameT.position.set(dz.x, dz.height + 0.07, doorWallZ);
   group.add(frameT);
 
   const storageBox = {
     xMin: storage.anchor.x + 1.5 - roomW / 2,
     xMax: storage.anchor.x + 1.5 + roomW / 2,
-    zMin: f.zMax + 0.3,
-    zMax: f.zMax + 0.3 + roomD,
+    zMin: roomZ - roomD / 2,
+    zMax: roomZ + roomD / 2,
     yMax: lowH,
   };
   return { group, south, ceiling: ceil, storageRoom: room, storageBox, seatCount: inst.count, outer, floorCenter: { x: cx, z: cz } };

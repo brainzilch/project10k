@@ -70,7 +70,7 @@ scene.add(sheets.group);
 
 // 収納庫ラベル・演奏位置ラベル
 const storageLabel = makeTextSprite(storage.label, { width: 5.5 });
-storageLabel.position.set(storage.anchor.x + 1.5, 4.9, storage.anchor.z + 1.0);
+storageLabel.position.set(storage.door.x, 3.7, storage.door.z + (storage.door.z > 0 ? -0.8 : 0.8));
 scene.add(storageLabel);
 const perfLabel = makeTextSprite('演奏位置（赤丸）', { width: 5.5, border: '#e0202a' });
 perfLabel.position.set(performance.center.x, 3.2, performance.center.z);
