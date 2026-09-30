@@ -166,4 +166,24 @@ dist/                 書き出し結果（mp4・poster.png・checks/）
 
 ## 動画検証ログ
 
-（`npm run verify:video` の出力を書き出し時に追記）
+`npm run verify:video` の出力（2026-09-30 書き出し、Chromium 141 headless + SwiftShader、ffmpeg 6.1 libx264 crf 18、描画約 0.5 秒/フレーム）：
+
+```
+{
+  "file": "dist/ichimura_setup_teardown_3d.mp4",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "codec": "h264",
+  "frames": 2700,
+  "duration_s": 90,
+  "size_MB": 34.8,
+  "expected": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration": 90
+  }
+}
+VIDEO CHECK OK
+```
