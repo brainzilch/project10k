@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>市村記念体育館 コンサート設営・撤去 3Dアニメーション</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="gl"></canvas>
+      <div id="hud">
+        <div id="hud-title">
+          <div class="venue">市村記念体育館｜コンサート設営・撤去</div>
+          <div class="phase"><span id="hud-chip" class="chip"></span><span id="hud-step"></span></div>
+        </div>
+        <div id="hud-right">
+          <div id="hud-counter" class="panel"></div>
+          <div id="hud-badge" class="badge">土足作業可</div>
+        </div>
+        <div id="hud-photo" class="photo">
+          <div class="photo-label">移動前の写真</div>
+          <img id="hud-photo-img" alt="展示物の移動前の写真" />
+          <div id="hud-photo-note" class="photo-note"></div>
+        </div>
+        <div id="hud-flash"></div>
+        <div id="hud-sub"></div>
+        <div id="hud-note">※ 仮配置・仮寸法（未確定）／色は識別用</div>
+        <div id="hud-progress"><div id="hud-progress-bar"></div><div id="hud-markers"></div></div>
+      </div>
+    </div>
+    <div id="controls">
+      <button id="btn-play" title="再生/一時停止">▶ 再生</button>
+      <input id="seek" type="range" min="0" max="90" step="0.033" value="0" />
+      <span id="time">0.0 / 90.0 s</span>
+      <label>カメラ
+        <select id="cam-select">
+          <option value="auto">自動（タイムライン）</option>
+          <option value="overview">斜め俯瞰</option>
+          <option value="top">真上</option>
+          <option value="free">自由（ドラッグで回転）</option>
+        </select>
+      </label>
+      <label>速度
+        <select id="speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+        </select>
+      </label>
+      <button id="btn-still" title="現在の画面をPNGで保存">画面保存</button>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

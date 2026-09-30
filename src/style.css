@@ -1,0 +1,49 @@
+:root {
+  --hud-font: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "IPAPGothic", "IPAGothic", sans-serif;
+}
+html, body { margin: 0; padding: 0; background: #0f1216; color: #fff; font-family: var(--hud-font); }
+body { display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+#stage { position: relative; width: 100vw; max-width: 100vw; aspect-ratio: 16 / 9; background: #0f1216; overflow: hidden; }
+body.capture { display: block; }
+body.capture #stage { width: 1920px; height: 1080px; aspect-ratio: auto; }
+body.capture #controls { display: none; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* HUD は 1920x1080 を基準にして、容器サイズに合わせてスケール */
+#hud { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; pointer-events: none; }
+
+#hud-title { position: absolute; left: 48px; top: 40px; max-width: 1440px; }
+#hud-title .venue { font-size: 30px; font-weight: 700; color: #e6edf3; letter-spacing: 0.04em; text-shadow: 0 2px 8px rgba(0,0,0,0.8); opacity: 0.95; }
+#hud-title .phase { margin-top: 12px; display: flex; align-items: center; gap: 18px; }
+.chip { display: inline-block; padding: 10px 22px; border-radius: 14px; background: #f2c14e; color: #1a1a1a; font-size: 34px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+.chip.teardown { background: #e05a5a; color: #fff; }
+.chip.info { background: #4fa3e0; color: #fff; }
+#hud-step { font-size: 48px; font-weight: 900; line-height: 1.15; color: #fff; text-shadow: 0 3px 10px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.9); }
+
+#hud-right { position: absolute; right: 48px; top: 40px; display: flex; flex-direction: column; align-items: flex-end; gap: 16px; }
+.panel { background: rgba(12,16,24,0.82); border: 2px solid rgba(255,255,255,0.18); border-radius: 16px; padding: 14px 24px; font-size: 34px; font-weight: 700; min-width: 300px; text-align: right; display: none; }
+.panel .big { font-size: 60px; font-weight: 900; color: #ffd166; }
+.panel .sub { font-size: 26px; font-weight: 600; color: #cbd5e1; margin-top: 4px; }
+.badge { display: none; background: #2ea043; color: #fff; font-size: 40px; font-weight: 900; padding: 10px 26px; border-radius: 14px; border: 3px solid #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.5); letter-spacing: 0.06em; }
+
+#hud-sub { position: absolute; left: 48px; right: 48px; bottom: 96px; font-size: 40px; font-weight: 700; line-height: 1.35; color: #fff; text-shadow: 0 3px 10px rgba(0,0,0,0.9); background: rgba(10,14,20,0.62); padding: 14px 28px; border-radius: 14px; border-left: 12px solid #f2c14e; box-sizing: border-box; }
+#hud-sub.teardown { border-left-color: #e05a5a; }
+#hud-sub.info { border-left-color: #4fa3e0; }
+#hud-note { position: absolute; right: 48px; bottom: 52px; font-size: 22px; color: #cbd5e1; text-shadow: 0 2px 6px rgba(0,0,0,0.9); }
+
+#hud-progress { position: absolute; left: 48px; right: 48px; bottom: 36px; height: 12px; background: rgba(255,255,255,0.18); border-radius: 6px; overflow: visible; }
+#hud-progress-bar { height: 100%; width: 0; background: #f2c14e; border-radius: 6px; }
+#hud-markers { position: absolute; left: 0; right: 0; top: -6px; height: 24px; }
+#hud-markers .m { position: absolute; top: 0; width: 3px; height: 24px; background: rgba(255,255,255,0.7); }
+#hud-markers .m.td { background: rgba(255,120,120,0.9); }
+
+.photo { position: absolute; right: 48px; top: 200px; width: 420px; background: #fff; padding: 12px 12px 14px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); transform: rotate(3deg); display: none; }
+.photo img { width: 100%; height: 260px; object-fit: cover; display: block; border-radius: 4px; background: #333; }
+.photo-label { color: #1f2937; font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+.photo-note { color: #1f2937; font-size: 24px; font-weight: 700; margin-top: 8px; min-height: 30px; }
+#hud-flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+
+#controls { width: 100%; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 16px; font-size: 16px; background: #171c23; }
+#controls button { font-size: 16px; padding: 8px 16px; border-radius: 8px; border: 1px solid #555; background: #2a3140; color: #fff; }
+#controls input[type=range] { flex: 1; min-width: 200px; }
+#controls select { font-size: 16px; padding: 6px; }

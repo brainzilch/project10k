@@ -1,0 +1,23 @@
+{
+  "name": "ichimura-setup-teardown-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "市村記念体育館 コンサート設営・撤去 3Dアニメーション (Vite + Three.js)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "verify:seating": "node scripts/verify_seating.mjs",
+    "render": "node scripts/render.mjs",
+    "checks": "node scripts/checks.mjs",
+    "verify:video": "node scripts/verify_video.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "playwright-core": "1.56.1"
+  }
+}
