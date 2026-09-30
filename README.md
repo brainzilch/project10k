@@ -11,7 +11,8 @@ Vite + Three.js で作成した、約90秒の設営・撤去手順の 3D アニ�
 
 | ファイル | 内容 |
 |---|---|
-| `dist/ichimura_setup_teardown_3d.mp4` | 完成動画（1920×1080、30 fps、90 秒、H.264、音声なし、日本語テロップ） |
+| `dist/ichimura_setup_teardown_3d.mp4` | 完成動画・原本（1920×1080、30 fps、90 秒、H.264 crf 18、音声なし、日本語テロップ、約 35 MB） |
+| `dist/ichimura_setup_teardown_3d_web.mp4` | 同じ動画の配布版（同解像度・同 fps、crf 25、約 13 MB。スマホ送付用） |
 | `dist/poster.png` | 全体配置のポスター画像（1920×1080） |
 | `dist/checks/*.png` | 検証用フレーム（0秒、折り返し途中、椅子150脚、完成、撤去後、真上、斜め俯瞰 など） |
 | `dist/checks/report.json` | 各検証フレームの時刻・椅子数・テロップ |
