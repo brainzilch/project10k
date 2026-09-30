@@ -70,7 +70,7 @@ function mux(customBgm) {
     // 外部 BGM は公演中（生演奏）の間は消し、他は小さめに重ねる。曲が短ければループする
     filter = `[2:a]atrim=0:${staffVideo.duration},volume=0.55,volume=enable='between(t,58,79)':volume=0,afade=t=in:st=0:d=1,afade=t=out:st=${staffVideo.duration - 2}:d=2[b];[1:a][b]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11[a]`;
   }
-  args.push('-filter_complex', filter, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', OUT);
+  args.push('-filter_complex', filter, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-ar', '48000', '-b:a', '192k', '-shortest', '-movflags', '+faststart', OUT);
   execFileSync(FFMPEG, args);
   console.log('wrote', OUT);
 }
