@@ -198,30 +198,35 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
     bgmBus.gain.linearRampToValueAtTime(s.v, Math.max(0.01, s.t));
   }
 
-  // ---- 生演奏（公演中）：ゆっくりした原作のピアノ ----
+  // ---- 生演奏（公演中）：ゆっくりした原作のピアノ（9小節＋終止和音）----
   {
-    const lpBpm = 66;
-    const lb = 60 / lpBpm;
+    const lb = 0.9;
     const t0 = livePiano.from;
-    const roots = [48, 45, 41, 43, 48]; // C A F G C（LH）
+    const roots = [48, 45, 41, 43, 48, 45, 41, 43, 48]; // C Am F G C Am F G C（左手）
+    const thirds = [4, 3, 4, 4, 4, 3, 4, 4, 4];
     const arp = [0, 7, 16, 7]; // 根音, 5度, 3度(上のオクターブ), 5度
-    const thirds = [4, 3, 4, 4, 4];
-    for (let b = 0; b < 5; b++) {
+    for (let b = 0; b < 9; b++) {
       for (let i = 0; i < 4; i++) {
         const off = arp[i] === 16 ? 12 + thirds[b] : arp[i];
         pianoNote(sfxBus, t0 + (b * 4 + i) * lb, roots[b] + off, lb * 1.6, 0.42, 0.55);
       }
     }
-    const mel = [
-      [0, 76, 2], [2, 79, 1], [3, 76, 1],
-      [4, 81, 1.5], [5.5, 79, 0.5], [6, 76, 2],
-      [8, 77, 2], [10, 81, 1], [11, 79, 1],
-      [12, 74, 2], [14, 71, 1], [15, 74, 1],
-      [16, 72, 4],
+    const bars = [
+      [[0, 76, 2], [2, 79, 1], [3, 76, 1]],
+      [[0, 81, 1.5], [1.5, 79, 0.5], [2, 76, 2]],
+      [[0, 77, 2], [2, 81, 1], [3, 79, 1]],
+      [[0, 74, 2], [2, 71, 1], [3, 74, 1]],
+      [[0, 79, 1], [1, 76, 1], [2, 79, 1], [3, 84, 1]],
+      [[0, 81, 2], [2, 76, 1], [3, 72, 1]],
+      [[0, 77, 1.5], [1.5, 79, 0.5], [2, 81, 2]],
+      [[0, 79, 1], [1, 74, 1], [2, 71, 2]],
+      [[0, 72, 4]],
     ];
-    for (const [b, m, d] of mel) pianoNote(sfxBus, t0 + b * lb, m, d * lb, 0.62, 0.6);
+    bars.forEach((notes, bi) => {
+      for (const [b, m, d] of notes) pianoNote(sfxBus, t0 + (bi * 4 + b) * lb, m, d * lb, 0.62, 0.6);
+    });
     // 終止和音
-    for (const m of [48, 60, 64, 67, 72]) pianoNote(sfxBus, t0 + 20 * lb, m, 1.2, 0.5, 0.7);
+    for (const m of [48, 60, 64, 67, 72]) pianoNote(sfxBus, t0 + 36 * lb, m, 1.2, 0.5, 0.7);
   }
 
   // ---- 効果音 ----

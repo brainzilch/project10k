@@ -1,5 +1,5 @@
 // 運営スタッフ注意喚起動画：時刻 t から場面の状態を決定的に計算する（乱数は固定シード）。
-import { layout, parking, stations, T, receptionParts, receptionSteps, quietParts, pickup, entry, talk, late, rules, staffVideo } from './staffConfig.js';
+import { layout, parking, stations, T, receptionParts, receptionSteps, quietParts, hall, ban, pickup, entry, talk, late, rules, staffVideo } from './staffConfig.js';
 import { prepKeyframes, sampleKeyframes, PALETTE } from './people.js';
 import { buildSeating } from '../seating.js';
 import { lerp, smooth, clamp01 } from '../timeline.js';
@@ -114,8 +114,27 @@ add('S_door', {
   ],
 });
 add('S_gate', { staff: true, marker: 'staff', kfs: [{ t: 56, x: stations.gate.x, z: stations.gate.z, yaw: FACE.W + 0.4 }] });
-add('S_L1', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallLower[0], yaw: FACE.N }] });
-add('S_L2', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallLower[1], yaw: FACE.N }] });
+add('S_L1', {
+  staff: true,
+  marker: 'staff',
+  kfs: [
+    { t: 56, ...stations.wallLower[0], yaw: FACE.N },
+    { t: hall.chat[0] - 0.4, ...stations.wallLower[0], yaw: FACE.E }, // 会場内の会話の例：隣のスタッフのほうを向く
+    { t: hall.back[0], ...stations.wallLower[0], yaw: FACE.N },
+  ],
+});
+// 会場内の例：壁際のスタッフが足音を立てて歩き、隣のスタッフと話し込む → 静かに元の位置へ戻る
+add('S_L2', {
+  staff: true,
+  marker: 'staff',
+  kfs: [
+    { t: 56, ...stations.wallLower[1], yaw: FACE.N },
+    { t: hall.walk[0], ...stations.wallLower[1] },
+    { t: hall.walk[1], x: 6.6, z: 16.3 },
+    { t: hall.back[0], x: 6.6, z: 16.3 },
+    { t: hall.back[1], ...stations.wallLower[1], yaw: FACE.N },
+  ],
+});
 add('S_U1', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallUpper[0], yaw: FACE.S }] });
 add('S_U2', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallUpper[1], yaw: FACE.S }] });
 
@@ -221,6 +240,8 @@ const C = {
   car1: { pos: [-66, 21, -6], target: [-41, 1.5, 12] },
   car2: { pos: [-63, 19, -2], target: [-41, 1.5, 12] },
   mapC: { pos: [-100, 84, 40], target: [-10, 0, 46] },
+  hall1: { pos: [27, 17, 37], target: [10, 0, 9] },
+  hall2: { pos: [24, 15, 34], target: [9, 0, 9] },
   talk1: { pos: [48, 16, 15], target: [31, 0, 1.5] },
   talk2: { pos: [45, 14, 13], target: [31, 0, 2] },
   corr: { pos: [35.2, 2.7, 4.7], target: [26.0, 1.3, 4.3] },
@@ -240,8 +261,10 @@ const camSched = [
   [[47, 53.2], C.car1, C.car2],
   [[53.2, 58], C.mapB, C.mapC],
   [[58, 71.2], C.talk1, C.talk2],
-  [[71.2, 77.4], C.corr, C.corr],
-  [[77.4, 82], C.wide1, C.wide2],
+  [quietParts.hall, C.hall1, C.hall2],
+  [quietParts.rec, C.hall2, C.hall1],
+  [quietParts.late, C.corr, C.corr],
+  [quietParts.stations, C.wide1, C.wide2],
   [T.outro, C.ovB, C.ovA],
 ];
 export function cameraAt(t) {
@@ -272,12 +295,12 @@ export const LABEL_DEFS = [
   { id: 'pkShrine2', text: '有料駐車場へどうぞ', pos: [-38, 9, 75], fs: 36, t: [53.2, 58] },
   { id: 'pkSay', text: '関係者のみです。有料駐車場へどうぞ', pos: [-38.0, 5.2, 12], fs: 36, t: [48.4, 51.6] },
   // 公演中（ホワイエも含む）
-  { id: 'lightWarn', text: 'ドアを開けるとホワイエの光が差し込む', pos: [25.6, 3.4, 4.4], fs: 34, t: [71.6, 73.4] },
-  { id: 'curtain', text: 'ドアに暗幕を1枚垂らす', pos: [25.6, 3.4, 4.4], fs: 36, t: [73.4, 77.4] },
-  { id: 'gate', text: '玄関 1名', pos: [37.0, 4.8, -3.0], fs: 34, t: [77.6, 82] },
-  { id: 'foyerDoor', text: 'ホワイエのドア 1名', pos: [29.8, 3.6, 7.0], fs: 34, t: [77.6, 82] },
-  { id: 'lower', text: '下手の壁際 2名', pos: [8, 3.6, 16.9], fs: 34, t: [77.6, 82] },
-  { id: 'upper', text: '上手の壁際 2名', pos: [10, 3.6, -16.9], fs: 34, t: [77.6, 82] },
+  { id: 'lightWarn', text: 'ドアを開けるとホワイエの光が差し込む', pos: [25.6, 3.4, 4.4], fs: 34, t: [85.6, 87.4] },
+  { id: 'curtain', text: 'ドアに暗幕を1枚垂らす', pos: [25.6, 3.4, 4.4], fs: 36, t: [87.4, 91.4] },
+  { id: 'gate', text: '玄関 1名', pos: [37.0, 4.8, -3.0], fs: 34, t: [91.6, 96] },
+  { id: 'foyerDoor', text: 'ホワイエのドア 1名', pos: [29.8, 3.6, 7.0], fs: 34, t: [91.6, 96] },
+  { id: 'lower', text: '下手の壁際 2名', pos: [8, 3.6, 16.9], fs: 34, t: [91.6, 96] },
+  { id: 'upper', text: '上手の壁際 2名', pos: [10, 3.6, -16.9], fs: 34, t: [91.6, 96] },
 ];
 
 // ---------------------------------------------------------------- 効果（波紋・吹き出し・×・✔）
@@ -291,7 +314,25 @@ function ripples(t) {
       out.push({ x: a.x, z: a.z, u: (t - ts) / 1.9, kind: 'step' });
     }
   }
-  // 会話
+  // 会場内：足音
+  for (let k = 0; k < 5; k++) {
+    const ts = hall.walk[0] + 0.3 + 0.5 * k;
+    if (ts < hall.walk[1] && t >= ts && t < ts + 1.9) {
+      const a = sampleKeyframes(actorById.S_L2.kfs, ts);
+      out.push({ x: a.x, z: a.z, u: (t - ts) / 1.9, kind: 'step' });
+    }
+  }
+  // 会場内：会話
+  for (let k = 0; k < 4; k++) {
+    const ts = hall.chat[0] + 0.5 * k;
+    if (ts < hall.chat[1] && t >= ts && t < ts + 2.0) {
+      for (const id of ['S_L1', 'S_L2']) {
+        const a = sampleKeyframes(actorById[id].kfs, ts);
+        out.push({ x: a.x, z: a.z, u: (t - ts) / 2.0, kind: 'talk' });
+      }
+    }
+  }
+  // 会話（ホワイエ）
   for (let k = 0; k < 5; k++) {
     const ts = talk.chat[0] + 0.62 * k;
     if (t >= ts && t < ts + 2.2 && ts < talk.chat[1]) {
@@ -319,8 +360,8 @@ function hud(t) {
     H.scene = 'intro';
     H.chip = '運営スタッフ向け';
     H.step = '本日の運営で気をつける3つのこと';
-    H.sub = '① 受付　② 駐車場案内　③ 公演中は静かに。チケットの受け渡しは 16:30 から、開場は 17:00 です。';
-    H.panel = { title: '3つのこと', items: ['① 受付', '② 駐車場案内', '③ 公演中は静かに'], active: -1 };
+    H.sub = '① 受付　② 駐車場案内　③ 公演中は静かに（撮影・録音もNG）。チケットの受け渡しは 16:30 から、開場は 17:00 です。';
+    H.panel = { title: '3つのこと', items: ['① 受付', '② 駐車場案内', '③ 公演中は静かに・撮影録音NG'], active: -1 };
   } else if (inR(t, T.reception)) {
     H.scene = 'reception';
     H.chip = '① 受付';
@@ -361,31 +402,38 @@ function hud(t) {
     H.scene = 'quiet';
     H.chip = '③ 公演中';
     H.chipClass = 'teardown';
-    H.step = '公演中は、ホワイエも含めて静かに';
-    const items = ['足音・ドアの音が響く', '会話は必要最低限に', '途中入場は暗幕をくぐって静かに'];
+    H.step = '公演中は、ホワイエも会場内も静かに';
+    const items = ['足音・ドアの音が響く', 'ホワイエ・玄関：会話は最低限', '会場内も会話・足音はNG', '撮影（写真・動画）・録音はNG', '途中入場は暗幕でそっと'];
+    const panel = (a) => ({ title: '公演中に気をつけること', items: items.map((s2, i2) => `${i2 + 1}  ${s2}`), active: a, showUntil: a + 1 });
     if (inR(t, quietParts.steps)) {
       H.sub = '足音が響き、各ドアの遮音性も低い会場です。ホワイエの音もホールに届きます。演奏は生音に近い音量です。';
-      H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 0, showUntil: 1 };
+      H.panel = panel(0);
     } else if (inR(t, quietParts.talk)) {
       H.sub = '玄関付近・ホワイエを含め、スタッフ同士の会話は必要最低限にとどめます。';
-      H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 1, showUntil: 2 };
+      H.panel = panel(1);
+    } else if (inR(t, quietParts.hall)) {
+      H.sub = t < hall.chat[0] ? 'ホワイエだけでなく、会場内でも足音を立てません。' : 'ホワイエだけでなく、会場内でも話しません。';
+      H.panel = panel(2);
+    } else if (inR(t, quietParts.rec)) {
+      H.sub = t < ban.rec ? 'カメラでの撮影は、写真も動画もどちらも禁止です。' : '録音も禁止です。';
+      H.panel = panel(3);
     } else if (inR(t, quietParts.late)) {
       H.sub =
         t < late.curtainDrop[0]
           ? '曲はすべてつながっていて曲間はありません。途中入場でドアを開けると、ホワイエの光がホールに差し込みます。'
           : 'ドアに暗幕を1枚垂らして光を遮り、途中入場の方はそっと通します。';
-      H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 2, showUntil: 3 };
+      H.panel = panel(4);
     } else {
       H.sub = '公演中の配置：壁際は下手・上手に各2名、玄関とホワイエのドアに各1名。演奏が終わるまで静かに。';
-      H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 2, showUntil: 3 };
+      H.panel = panel(4);
     }
   } else {
     H.scene = 'outro';
     H.chip = 'まとめ';
     H.step = '受付・駐車場案内・私語を慎む';
-    H.sub = '列は「受け取り」と「開場待ち」の2つ。市村の駐車場は関係者のみ。公演中はホワイエも静かに。';
-    const a = t < 84 ? 0 : t < 86 ? 1 : 2;
-    H.panel = { title: '3つのこと', items: ['① 受付', '② 駐車場案内', '③ 公演中は静かに'], active: a, showUntil: 3 };
+    H.sub = '列は「受け取り」と「開場待ち」の2つ。市村の駐車場は関係者のみ。公演中はホワイエも会場内も静かに、撮影・録音はNG。';
+    const a = t < 98 ? 0 : t < 100.4 ? 1 : 2;
+    H.panel = { title: '3つのこと', items: ['① 受付', '② 駐車場案内', '③ 公演中は静かに・撮影録音NG'], active: a, showUntil: 3 };
   }
   return H;
 }
@@ -402,7 +450,13 @@ export function computeStaffState(t) {
   const scene = hud(t).scene;
   const labels = {};
   for (const l of LABEL_DEFS) labels[l.id] = inR(t, l.t);
-  const talkBubbles = t >= talk.chat[0] && t < talk.chat[1];
+  const inTalk = t >= talk.chat[0] && t < talk.chat[1];
+  const inHallTalk = t >= hall.chat[0] && t < hall.chat[1];
+  let cross = null;
+  if (t >= talk.cross[0] && t < talk.cross[1]) cross = { kind: 'foyer', a: 'S_door', b: 'S_gate' };
+  else if (t >= hall.crossStep[0] && t < hall.crossStep[1]) cross = { kind: 'hallStep', a: 'S_L2', b: 'S_L2' };
+  else if (t >= hall.crossTalk[0] && t < hall.crossTalk[1]) cross = { kind: 'hallTalk', a: 'S_L1', b: 'S_L2' };
+  const banState = { photo: t >= ban.photoVideo && t < ban.end, video: t >= ban.photoVideo && t < ban.end, rec: t >= ban.rec && t < ban.end, t0: ban.photoVideo };
   return {
     t,
     scene,
@@ -414,8 +468,9 @@ export function computeStaffState(t) {
     labels,
     ripples: ripples(t),
     checks: checks(t),
-    bubbles: talkBubbles,
-    cross: t >= talk.cross[0] && t < talk.cross[1],
+    bubbles: inTalk ? ['S_door', 'S_gate'] : inHallTalk ? ['S_L1', 'S_L2'] : null,
+    cross,
+    ban: banState,
     hud: hud(t),
     deckVisible: scene !== 'open' && scene !== 'quiet' && !(t >= 24.5 && t < 28.3),
     markerScale: scene === 'quiet' || scene === 'open' ? 1.15 : scene === 'parking' ? 2.2 : 0,

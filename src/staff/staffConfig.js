@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const staffVideo = {
-  duration: 90, // 秒。長さの目安は仮（案：約90秒）
+  duration: 104, // 秒。長さの目安は仮（当初案は約90秒。会場内のルール・撮影録音禁止を足して約104秒）
 };
 
 // 方位：平面図の方位記号は右（玄関側）が北。よって +x = 北、+z = 東（駐車場は会場の東）。   // 仮（読み取り）
@@ -89,8 +89,8 @@ export const T = {
   reception: [6, 30],
   open: [30, 42],
   parking: [42, 58],
-  quiet: [58, 82],
-  outro: [82, 90],
+  quiet: [58, 96],
+  outro: [96, 104],
 };
 // 受付の小区間
 export const receptionParts = {
@@ -108,10 +108,16 @@ export const receptionSteps = [
 // 公演中の小区間（曲はすべてつながっていて曲間はない）
 export const quietParts = {
   steps: [58, 62.4], // 足音・ドアの音が響く（ホワイエも含めて見せる）
-  talk: [62.4, 71.2], // スタッフ同士の会話は必要最低限（×とブザー）
-  late: [71.2, 77.4], // 途中入場：暗幕を1枚垂らして、光を遮る
-  stations: [77.4, 82], // 公演中の配置
+  talk: [62.4, 71.2], // ホワイエ・玄関：スタッフ同士の会話は必要最低限（×とブザー）
+  hall: [71.2, 79.2], // 会場内でも：会話しない・足音を立てない（×とブザー）
+  rec: [79.2, 85.2], // 撮影（写真・動画）・録音は禁止
+  late: [85.2, 91.4], // 途中入場：暗幕を1枚垂らして、光を遮る
+  stations: [91.4, 96], // 公演中の配置
 };
+// 会場内の例（壁際のスタッフが足音を立てて歩く → 会話する）
+export const hall = { walk: [71.4, 73.8], crossStep: [73.8, 75.6], chat: [75.8, 77.6], crossTalk: [77.6, 79.2], back: [79.4, 82.4] };
+// 撮影・録音の禁止カードを出す時刻
+export const ban = { photoVideo: 79.6, rec: 82.0, end: 85.2 };
 // 受け取り窓口：お一人ずつの対応が終わる時刻（V1〜V6）と、係が手を上げてチケットを渡す時間帯
 export const pickup = {
   serve: [19.4, 21.0, 23.0, 24.6, 26.0, 27.2],
@@ -122,7 +128,7 @@ export const entry = { openAt: [33.0, 34.0], checks: [35.2, 36.8, 38.4, 39.9, 41
 // 私語の例
 export const talk = { walk: [59.0, 62.0], chat: [62.6, 65.8], cross: [66.0, 68.9], back: [68.9, 71.0] };
 // 途中入場（暗幕）
-export const late = { arrive: 68.4, doorOpen: [71.6, 72.4], curtainDrop: [73.4, 74.1], pass: [74.6, 76.6], doorClose: [76.8, 78.2], end: 77.2 };
+export const late = { arrive: 82.4, doorOpen: [85.6, 86.4], curtainDrop: [87.4, 88.1], pass: [88.6, 90.6], doorClose: [90.8, 92.2], end: 91.2 };
 
 // ---- 効果音・音楽のきっかけ（秒）-----------------------------------------
 export const cues = [
@@ -131,7 +137,6 @@ export const cues = [
   { t: 30.0, type: 'whoosh' },
   { t: 42.0, type: 'whoosh' },
   { t: 58.0, type: 'whoosh' },
-  { t: 82.0, type: 'whoosh' },
   // 受付の手順
   { t: 10.5, type: 'ding', note: 0 },
   { t: 13.5, type: 'ding', note: 1 },
@@ -159,21 +164,31 @@ export const cues = [
   // 公演中
   { t: 58.6, type: 'shh' },
   { t: 59.1, type: 'steps', dur: 2.8, tail: 1.6 }, // 足音がホワイエからホールへ響く
-  { t: 62.8, type: 'murmur', dur: 3.0 }, // 会話
+  { t: 62.8, type: 'murmur', dur: 3.0 }, // ホワイエの会話
   { t: 66.0, type: 'buzz' }, // ×（ぶぶーっ）
-  { t: 71.6, type: 'doorSoft' },
-  { t: 73.4, type: 'cloth' }, // 暗幕を垂らす
-  { t: 74.6, type: 'steps', dur: 1.9, tail: 0.4, gain: 0.4 },
-  { t: 76.9, type: 'doorSoft' },
-  { t: 77.2, type: 'applause', dur: 3.2 },
+  // 会場内でも会話・足音はNG
+  { t: 71.5, type: 'steps', dur: 2.4, tail: 1.8 },
+  { t: 73.8, type: 'buzz' },
+  { t: 75.9, type: 'murmur', dur: 1.7 },
+  { t: 77.6, type: 'buzz' },
+  // 撮影（写真・動画）・録音はNG
+  { t: 79.7, type: 'buzz' },
+  { t: 82.1, type: 'buzz' },
+  // 途中入場（暗幕）
+  { t: 85.6, type: 'doorSoft' },
+  { t: 87.4, type: 'cloth' },
+  { t: 88.6, type: 'steps', dur: 1.9, tail: 0.4, gain: 0.4 },
+  { t: 90.9, type: 'doorSoft' },
+  { t: 91.2, type: 'applause', dur: 3.2 },
   // まとめ
-  { t: 83.0, type: 'ding', note: 0 },
-  { t: 85.0, type: 'ding', note: 1 },
-  { t: 87.0, type: 'ding', note: 2 },
-  { t: 89.0, type: 'chime' },
+  { t: 94.0, type: 'whoosh' },
+  { t: 97.0, type: 'ding', note: 0 },
+  { t: 99.0, type: 'ding', note: 1 },
+  { t: 101.0, type: 'ding', note: 2 },
+  { t: 103.0, type: 'chime' },
 ];
 
 // 生演奏（公演中）の区間。この間は BGM を下げて、生音に近い小さめのピアノだけにする
-export const livePiano = { from: 58.0, to: 77.2 };
+export const livePiano = { from: 58.0, to: 91.2 };
 
-export default { staffVideo, rules, layout, parking, stations, T, receptionParts, receptionSteps, quietParts, pickup, entry, talk, late, cues, livePiano };
+export default { staffVideo, rules, layout, parking, stations, T, receptionParts, receptionSteps, quietParts, hall, ban, pickup, entry, talk, late, cues, livePiano };

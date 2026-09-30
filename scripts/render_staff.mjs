@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { openApp } from './lib/browser.mjs';
 import { video } from '../src/config.js';
-import { staffVideo } from '../src/staff/staffConfig.js';
+import { staffVideo, livePiano, late } from '../src/staff/staffConfig.js';
 
 const OUT = process.env.OUT || 'dist/staff/ichimura_staff_notice_3d.mp4';
 const SILENT = OUT.replace(/\.mp4$/, '_silent.mp4');
@@ -68,7 +68,7 @@ function mux(customBgm) {
   if (customBgm) {
     args.push('-stream_loop', '-1', '-i', customBgm);
     // 外部 BGM は公演中（生演奏）の間は消し、他は小さめに重ねる。曲が短ければループする
-    filter = `[2:a]atrim=0:${staffVideo.duration},volume=0.55,volume=enable='between(t,58,79)':volume=0,afade=t=in:st=0:d=1,afade=t=out:st=${staffVideo.duration - 2}:d=2[b];[1:a][b]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11[a]`;
+    filter = `[2:a]atrim=0:${staffVideo.duration},volume=0.55,volume=enable='between(t,${livePiano.from},${late.end + 3.4})':volume=0,afade=t=in:st=0:d=1,afade=t=out:st=${staffVideo.duration - 2}:d=2[b];[1:a][b]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11[a]`;
   }
   args.push('-filter_complex', filter, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-ar', '48000', '-b:a', '192k', '-shortest', '-movflags', '+faststart', OUT);
   execFileSync(FFMPEG, args);

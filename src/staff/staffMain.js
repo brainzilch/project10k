@@ -142,9 +142,15 @@ const cross = makeLabelSprite('×', '#ffffff', 0xd62828, { fontSize: 200 });
 cross.scale.set(4.6, 4.6, 1);
 cross.visible = false;
 scene.add(cross);
-const crossText = makeFitSprite('ホワイエ・玄関でも会話は必要最低限に', { border: '#d62828' });
-crossText.visible = false;
-scene.add(crossText);
+const crossTexts = {
+  foyer: makeFitSprite('ホワイエ・玄関でも会話は必要最低限に', { border: '#d62828' }),
+  hallStep: makeFitSprite('会場内も足音NG', { border: '#d62828' }),
+  hallTalk: makeFitSprite('会場内も会話NG', { border: '#d62828' }),
+};
+Object.values(crossTexts).forEach((sp) => {
+  sp.visible = false;
+  scene.add(sp);
+});
 
 // ---------------------------------------------------------------- HUD
 const el = {
@@ -198,6 +204,34 @@ function updateHud(st) {
         .join('');
   } else el.panel.style.display = 'none';
   el.bar.style.width = `${(st.t / DURATION) * 100}%`;
+}
+
+// ---------------------------------------------------------------- 撮影・録音の禁止カード
+const banEl = document.getElementById('hud-ban');
+const iconCam = `<svg viewBox="0 0 120 120"><rect x="14" y="36" width="92" height="60" rx="10" fill="#e5e7eb"/><rect x="40" y="26" width="30" height="14" rx="4" fill="#e5e7eb"/><circle cx="60" cy="66" r="20" fill="#374151"/><circle cx="60" cy="66" r="11" fill="#93c5fd"/></svg>`;
+const iconVideo = `<svg viewBox="0 0 120 120"><rect x="10" y="34" width="66" height="52" rx="10" fill="#e5e7eb"/><path d="M80 52 L110 36 L110 84 L80 68 Z" fill="#e5e7eb"/><circle cx="26" cy="46" r="5" fill="#ef4444"/></svg>`;
+const iconMic = `<svg viewBox="0 0 120 120"><rect x="44" y="12" width="32" height="56" rx="16" fill="#e5e7eb"/><path d="M30 56 a30 30 0 0 0 60 0" fill="none" stroke="#e5e7eb" stroke-width="7" stroke-linecap="round"/><line x1="60" y1="86" x2="60" y2="106" stroke="#e5e7eb" stroke-width="7" stroke-linecap="round"/><line x1="42" y1="106" x2="78" y2="106" stroke="#e5e7eb" stroke-width="7" stroke-linecap="round"/></svg>`;
+const noSign = `<svg class="no" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#e11d1d" stroke-width="12"/><line x1="24" y1="96" x2="96" y2="24" stroke="#e11d1d" stroke-width="12" stroke-linecap="round"/></svg>`;
+banEl.innerHTML = [
+  ['photo', iconCam, '写真'],
+  ['video', iconVideo, '動画'],
+  ['rec', iconMic, '録音'],
+]
+  .map(([id, icon, label]) => `<div class="card" data-id="${id}">${icon}${noSign}<div class="lbl">${label}</div></div>`)
+  .join('');
+function updateBan(st) {
+  const b = st.ban;
+  const any = b.photo || b.video || b.rec;
+  banEl.style.display = any ? 'flex' : 'none';
+  document.getElementById('hud-dim').style.display = any ? 'block' : 'none';
+  banEl.querySelectorAll('.card').forEach((c) => {
+    const on = b[c.dataset.id];
+    c.style.display = on ? 'block' : 'none';
+    const t0 = c.dataset.id === 'rec' ? 82.0 : b.t0;
+    const u = Math.min(1, (st.t - t0) / 0.25);
+    c.style.transform = `scale(${0.6 + 0.4 * u + 0.06 * Math.max(0, 1 - (st.t - t0) / 0.4)})`;
+    c.style.opacity = String(Math.max(0, u));
+  });
 }
 
 // ---------------------------------------------------------------- 状態の適用
@@ -259,21 +293,28 @@ function applyState(st, freeCam) {
     m.material.opacity = 0.85 * (1 - r.u);
   });
   // 吹き出し・×
-  const l1 = st.people.S_door;
-  const l2 = st.people.S_gate;
-  bubbleL.visible = bubbleR.visible = st.bubbles;
+  bubbleL.visible = bubbleR.visible = !!st.bubbles;
   if (st.bubbles) {
+    const l1 = st.people[st.bubbles[0]];
+    const l2 = st.people[st.bubbles[1]];
     bubbleL.position.set(l1.x, 2.7, l1.z + 1.0);
     bubbleR.position.set(l2.x, 2.7, l2.z - 1.0);
   }
-  cross.visible = crossText.visible = st.cross;
-  const mid = { x: (l1.x + l2.x) / 2, z: (l1.z + l2.z) / 2 };
-  cross.position.set(mid.x, 4.6, mid.z);
-  crossText.position.set(mid.x, 2.7, mid.z);
+  Object.values(crossTexts).forEach((sp) => (sp.visible = false));
+  cross.visible = !!st.cross;
   if (st.cross) {
+    const a = st.people[st.cross.a];
+    const b = st.people[st.cross.b];
+    const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    cross.position.set(mid.x, 4.6, mid.z);
+    const ct = crossTexts[st.cross.kind];
+    ct.visible = true;
+    ct.position.set(mid.x, 2.9, mid.z);
     const k = 1 + 0.08 * Math.sin(st.t * 14);
     cross.scale.set(4.6 * k, 4.6 * k, 1);
   }
+  // 撮影・録音の禁止カード（画面に重ねる）
+  updateBan(st);
   // 可視性の切り替え
   const c = freeCam || st.camera;
   venue.south.visible = c.pos[2] <= cfg.venue.floor.zMax + 0.3;
@@ -296,7 +337,7 @@ function applyState(st, freeCam) {
   for (const l of LABEL_DEFS) fitSprite(labelSprites[l.id], labelSprites[l.id].userData.screenFont);
   fitSprite(bubbleL, 56);
   fitSprite(bubbleR, 56);
-  fitSprite(crossText, 44);
+  Object.values(crossTexts).forEach((sp) => fitSprite(sp, 44));
   updateHud(st);
 }
 
