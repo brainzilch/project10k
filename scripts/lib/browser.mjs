@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-export async function openApp({ width = 1920, height = 1080, port = Number(process.env.PREVIEW_PORT || 4180) } = {}) {
+export async function openApp({ width = 1920, height = 1080, port = Number(process.env.PREVIEW_PORT || 4180), pagePath = '/', globalName = '__anim' } = {}) {
   const server = await preview({ root, preview: { port, host: '127.0.0.1', strictPort: true, open: false }, logLevel: 'silent' });
-  const url = `http://127.0.0.1:${port}/?capture=1`;
+  const url = `http://127.0.0.1:${port}${pagePath}?capture=1`;
   const executablePath = process.env.CHROMIUM_PATH || undefined;
   const browser = await chromium.launch({
     headless: true,
@@ -31,16 +31,16 @@ export async function openApp({ width = 1920, height = 1080, port = Number(proce
     if (m.type() === 'error') errors.push(m.text());
   });
   await page.goto(url, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__anim && window.__anim.ready, null, { timeout: 60000 });
+  await page.waitForFunction((g) => window[g] && window[g].ready, globalName, { timeout: 60000 });
   // フォント読み込みを待つ
   await page.evaluate(() => document.fonts && document.fonts.ready);
-  const info = await page.evaluate(() => ({
-    duration: window.__anim.duration,
-    fps: window.__anim.fps,
-    chairCounts: window.__anim.chairCounts,
-    chairTotal: window.__anim.chairTotal,
-    bandRects: window.__anim.bandRects,
-  }));
+  const info = await page.evaluate((g) => ({
+    duration: window[g].duration,
+    fps: window[g].fps,
+    chairCounts: window[g].chairCounts,
+    chairTotal: window[g].chairTotal,
+    bandRects: window[g].bandRects,
+  }), globalName);
   const close = async () => {
     await browser.close();
     await server.close();

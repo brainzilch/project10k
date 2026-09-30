@@ -421,6 +421,42 @@ export function makeTextSprite(text, opts = {}) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
   sp.renderOrder = 11;
   sp.scale.set(opts.width || 6, (opts.width || 6) / 4, 1);
+  sp.userData.fontPx = fs;
+  return sp;
+}
+
+/** 文字の長さに合わせて枠の大きさが変わるラベル（スタッフ向け動画用）。画面上の文字サイズは fitSprite で揃える */
+export function makeFitSprite(text, opts = {}) {
+  const family = '"Noto Sans JP","Hiragino Sans","Yu Gothic","IPAGothic",sans-serif';
+  const fs = opts.fontSize || 88;
+  const m = document.createElement('canvas').getContext('2d');
+  m.font = `bold ${fs}px ${family}`;
+  const w = Math.min(2400, Math.ceil(m.measureText(text).width + 110));
+  const h = Math.ceil(fs * 1.75);
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = opts.bg || 'rgba(20,24,32,0.88)';
+  g.beginPath();
+  g.roundRect(6, 6, w - 12, h - 12, 34);
+  g.fill();
+  g.strokeStyle = opts.border || '#f2c14e';
+  g.lineWidth = 9;
+  g.stroke();
+  g.fillStyle = opts.fg || '#ffffff';
+  g.font = `bold ${fs}px ${family}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, w / 2, h / 2 + 4);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sp.renderOrder = 11;
+  sp.userData.fontPx = fs;
+  sp.userData.canvasH = h;
+  sp.userData.aspect = w / h;
+  sp.scale.set(4 * (w / h), 4, 1);
   return sp;
 }
 

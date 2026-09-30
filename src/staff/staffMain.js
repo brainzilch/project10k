@@ -1,0 +1,360 @@
+// 運営スタッフ注意喚起動画：シーン構築・時刻の適用・プレビュー操作・書き出し API
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import cfg, { video, cameras as camCfg } from '../config.js';
+import { buildVenue } from '../venue.js';
+import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, makeFitSprite, makeLabelSprite } from '../props.js';
+import { computeState as computeSetupState } from '../timeline.js';
+import { layout, T, staffVideo } from './staffConfig.js';
+import { buildFoyer, setDoorOpen } from './foyer.js';
+import { buildSurroundings } from './surroundings.js';
+import { makePerson, setPose } from './people.js';
+import { ACTORS, LABEL_DEFS, computeStaffState } from './staffTimeline.js';
+
+const params = new URLSearchParams(location.search);
+const CAPTURE = params.get('capture') === '1';
+if (CAPTURE) document.body.classList.add('capture');
+const DURATION = staffVideo.duration;
+
+// ---------------------------------------------------------------- renderer / scene
+const canvas = document.getElementById('gl');
+const stageEl = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1b2330);
+const camera = new THREE.PerspectiveCamera(camCfg.fov, 16 / 9, 0.1, 900);
+
+scene.add(new THREE.HemisphereLight(0xfff5e0, 0x6b5a45, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+sun.position.set(40, 60, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+const sc = sun.shadow.camera;
+sc.left = -55;
+sc.right = 55;
+sc.top = 55;
+sc.bottom = -55;
+sc.near = 5;
+sc.far = 200;
+sun.shadow.bias = -0.0008;
+sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+sun.target.position.set(20, 0, 0);
+const fill = new THREE.DirectionalLight(0xdfe8ff, 0.9);
+fill.position.set(-30, 25, -20);
+scene.add(fill, new THREE.AmbientLight(0xffffff, 0.35));
+
+// ---------------------------------------------------------------- 会場
+const venue = buildVenue({ eastDoors: layout.gymDoors });
+scene.add(venue.group);
+venue.eastOuter.visible = false;
+const foyer = buildFoyer();
+scene.add(foyer.group);
+const surroundings = buildSurroundings();
+scene.add(surroundings.group);
+
+// 公演の状態（椅子300脚・ピアノ・コントラバス・養生シート）は設営動画の完成状態を再利用
+const chairs = buildChairs();
+scene.add(chairs.group);
+const piano = buildPiano();
+scene.add(piano);
+const bass = buildDoubleBass();
+scene.add(bass);
+const exhibits = buildExhibits();
+exhibits.forEach((e) => scene.add(e.group));
+const sheets = buildSheets();
+scene.add(sheets.group);
+{
+  const st = computeSetupState(72, { rects: sheets.rects, chairCount: chairs.total });
+  st.sheets.forEach((s) => (s.showLabel = false));
+  sheets.update(st.sheets);
+  chairs.update(st.chairs);
+  exhibits.forEach((e, j) => {
+    const s = st.exhibits[j];
+    e.group.position.set(s.x, 0, s.z);
+    e.group.rotation.y = s.rotY;
+  });
+  piano.position.set(st.piano.x, 0, st.piano.z);
+  piano.rotation.y = st.piano.rotY;
+  piano.getObjectByName('dolly').visible = false;
+  bass.position.set(cfg.performance.bass.position.x, 0, cfg.performance.bass.position.z);
+  bass.rotation.y = cfg.performance.bass.rotationDeg * (Math.PI / 180);
+}
+
+// ---------------------------------------------------------------- 人物・ラベル・効果
+const persons = {};
+const markers = {};
+const markerGeo = new THREE.RingGeometry(0.72, 1.0, 40);
+for (const a of ACTORS) {
+  const p = makePerson({ staff: !!a.staff, color: a.color });
+  p.visible = false;
+  scene.add(p);
+  persons[a.id] = p;
+  if (a.marker) {
+    const m = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: a.marker === 'staff' ? 0xf28c1a : 0x2f6fdd, transparent: true, opacity: 0.95, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.09;
+    m.visible = false;
+    m.material.depthTest = false;
+    m.renderOrder = 6;
+    scene.add(m);
+    markers[a.id] = m;
+  }
+}
+const labelSprites = {};
+for (const l of LABEL_DEFS) {
+  const s = makeFitSprite(l.text, { border: l.text.includes('NG') ? '#e05a5a' : '#f2c14e' });
+  s.userData.screenFont = l.fs || 34;
+  s.position.set(...l.pos);
+  s.visible = false;
+  scene.add(s);
+  labelSprites[l.id] = s;
+}
+const rippleMeshes = [];
+const rippleGeo = new THREE.RingGeometry(0.93, 1.0, 64);
+for (let i = 0; i < 16; i++) {
+  const m = new THREE.Mesh(rippleGeo, new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = 0.12;
+  m.visible = false;
+  scene.add(m);
+  rippleMeshes.push(m);
+}
+const bubbleL = makeFitSprite('…', { border: '#f2c14e', fontSize: 120 });
+const bubbleR = makeFitSprite('…', { border: '#f2c14e', fontSize: 120 });
+bubbleL.visible = bubbleR.visible = false;
+scene.add(bubbleL, bubbleR);
+const cross = makeLabelSprite('×', '#ffffff', 0xd62828, { fontSize: 200 });
+cross.scale.set(6.4, 6.4, 1);
+cross.position.set(8.2, 4.6, 16.9);
+cross.visible = false;
+scene.add(cross);
+const crossText = makeFitSprite('会話は必要最低限に', { border: '#d62828' });
+crossText.position.set(8.2, 1.7, 16.9);
+crossText.visible = false;
+scene.add(crossText);
+
+// ---------------------------------------------------------------- HUD
+const el = {
+  root: document.getElementById('hud'),
+  chip: document.getElementById('hud-chip'),
+  step: document.getElementById('hud-step'),
+  sub: document.getElementById('hud-sub'),
+  panel: document.getElementById('hud-panel'),
+  clockBig: document.getElementById('hud-clock-big'),
+  clock: document.getElementById('hud-clock'),
+  bar: document.getElementById('hud-progress-bar'),
+  markers: document.getElementById('hud-markers'),
+};
+for (const k of ['reception', 'open', 'parking', 'quiet', 'outro']) {
+  const d = document.createElement('div');
+  d.className = 'm' + (k === 'quiet' ? ' td' : '');
+  d.style.left = `${(T[k][0] / DURATION) * 100}%`;
+  el.markers.appendChild(d);
+}
+function fitHud() {
+  const w = stageEl.clientWidth;
+  const h = stageEl.clientHeight;
+  const s = Math.min(w / 1920, h / 1080);
+  el.root.style.transform = `scale(${s})`;
+  el.root.style.left = `${(w - 1920 * s) / 2}px`;
+  el.root.style.top = `${(h - 1080 * s) / 2}px`;
+}
+function updateHud(st) {
+  const H = st.hud;
+  el.chip.textContent = H.chip;
+  el.chip.className = 'chip ' + H.chipClass;
+  el.step.textContent = H.step;
+  el.sub.textContent = H.sub;
+  el.sub.className = H.chipClass;
+  el.clockBig.style.display = H.clockBig ? 'block' : 'none';
+  el.clock.style.display = st.scene === 'open' ? 'none' : 'flex';
+  if (H.panel) {
+    el.panel.style.display = 'block';
+    const P = H.panel;
+    const upto = P.showUntil === undefined ? P.items.length : P.showUntil;
+    el.panel.innerHTML =
+      `<div class="ttl">${P.title}</div>` +
+      P.items
+        .map((s, i) => (i < upto ? `<div class="card ${i === P.active ? 'on' : i < P.active ? 'done' : ''}">${s}</div>` : ''))
+        .join('');
+  } else el.panel.style.display = 'none';
+  el.bar.style.width = `${(st.t / DURATION) * 100}%`;
+}
+
+// ---------------------------------------------------------------- 状態の適用
+let currentState = null;
+const camPos = new THREE.Vector3();
+function applyState(st, freeCam) {
+  // 人物
+  for (const a of ACTORS) setPose(persons[a.id], st.people[a.id]);
+  for (const [id, m] of Object.entries(markers)) {
+    const p = st.people[id];
+    m.visible = !!p.vis && st.markerScale > 0;
+    if (m.visible) {
+      m.position.set(p.x, 0.09, p.z);
+      m.scale.setScalar(st.markerScale);
+    }
+  }
+  // ドア
+  for (const d of foyer.doors) setDoorOpen(d, st.doors[d.id]);
+  // ラベル
+  for (const l of LABEL_DEFS) labelSprites[l.id].visible = !!st.labels[l.id];
+  // 波紋
+  rippleMeshes.forEach((m) => (m.visible = false));
+  st.ripples.slice(0, rippleMeshes.length).forEach((r, i) => {
+    const m = rippleMeshes[i];
+    const rad = 0.5 + r.u * (r.kind === 'talk' ? 9 : 6.5);
+    m.visible = true;
+    m.position.x = r.x;
+    m.position.z = r.z;
+    m.scale.setScalar(rad);
+    m.material.color.setHex(r.kind === 'talk' ? 0xf2a900 : 0x60a5fa);
+    m.material.opacity = 0.85 * (1 - r.u);
+  });
+  // 吹き出し・×
+  const l1 = st.people.S_L1;
+  const l2 = st.people.S_L2;
+  bubbleL.visible = bubbleR.visible = st.bubbles;
+  if (st.bubbles) {
+    bubbleL.position.set(l1.x, 2.7, l1.z);
+    bubbleR.position.set(l2.x, 2.7, l2.z);
+  }
+  cross.visible = crossText.visible = st.cross;
+  if (st.cross) {
+    const k = 1 + 0.08 * Math.sin(st.t * 14);
+    cross.scale.set(6.4 * k, 6.4 * k, 1);
+  }
+  // 可視性の切り替え
+  const c = freeCam || st.camera;
+  venue.south.visible = c.pos[2] <= cfg.venue.floor.zMax + 0.3;
+  venue.east.visible = st.scene !== 'open' && st.scene !== 'quiet';
+  venue.ceiling.visible = c.pos[1] < 12 && st.scene !== 'open';
+  foyer.deckGroup.visible = st.deckVisible;
+  surroundings.labels.lot.visible = surroundings.labels.north.visible = surroundings.labels.south.visible = st.scene === 'parking';
+  surroundings.labels.distance.visible = surroundings.labels.north_dir.visible = st.scene === 'parking';
+  surroundings.labels.venue.visible = st.scene === 'parking';
+  surroundings.labels.arrow.visible = st.scene === 'parking';
+  // カメラ
+  camera.up.set(0, 1, 0);
+  camera.position.set(c.pos[0], c.pos[1], c.pos[2]);
+  camera.lookAt(c.target[0], c.target[1], c.target[2]);
+  // スプライトの大きさを、カメラからの距離に合わせて少し補正（遠景では大きく）
+  camPos.set(c.pos[0], c.pos[1], c.pos[2]);
+  const halfTan = Math.tan((camera.fov * Math.PI) / 360);
+  const fitSprite = (sp, screenFont) => {
+    const hPx = (screenFont * (sp.userData.canvasH || 256)) / (sp.userData.fontPx || 96);
+    const h = (hPx / 1080) * 2 * camPos.distanceTo(sp.position) * halfTan;
+    sp.scale.set((sp.userData.aspect || 4) * h, h, 1);
+  };
+  for (const l of LABEL_DEFS) fitSprite(labelSprites[l.id], labelSprites[l.id].userData.screenFont);
+  for (const [k, sp] of Object.entries(surroundings.labels)) if (sp.isSprite) fitSprite(sp, sp.userData.screenFont || 36);
+  fitSprite(bubbleL, 56);
+  fitSprite(bubbleR, 56);
+  fitSprite(crossText, 44);
+  updateHud(st);
+}
+
+function resize() {
+  const w = CAPTURE ? video.width : stageEl.clientWidth;
+  const h = CAPTURE ? video.height : stageEl.clientHeight;
+  renderer.setPixelRatio(CAPTURE ? 1 : Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  fitHud();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------------- プレビュー操作
+const playBtn = document.getElementById('btn-play');
+const seek = document.getElementById('seek');
+const timeEl = document.getElementById('time');
+const camSelect = document.getElementById('cam-select');
+const speedSel = document.getElementById('speed');
+seek.max = String(DURATION);
+let t = 0;
+let playing = false;
+let speed = 1;
+let camMode = 'auto';
+const orbit = new OrbitControls(camera, canvas);
+orbit.enabled = false;
+
+function renderAt(time) {
+  t = Math.max(0, Math.min(DURATION, time));
+  currentState = computeStaffState(t);
+  if (camMode === 'free') {
+    applyState(currentState, { pos: camera.position.toArray(), target: orbit.target.toArray() });
+    orbit.update();
+  } else applyState(currentState);
+  renderer.render(scene, camera);
+  seek.value = String(t);
+  timeEl.textContent = `${t.toFixed(1)} / ${DURATION.toFixed(1)} s`;
+}
+let last = performance.now() / 1000;
+function loop() {
+  requestAnimationFrame(loop);
+  const now = performance.now() / 1000;
+  const dt = now - last;
+  last = now;
+  if (playing) {
+    let nt = t + dt * speed;
+    if (nt >= DURATION) nt = 0;
+    renderAt(nt);
+  } else if (camMode === 'free') renderAt(t);
+}
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.textContent = playing ? '❚❚ 一時停止' : '▶ 再生';
+});
+seek.addEventListener('input', () => {
+  playing = false;
+  playBtn.textContent = '▶ 再生';
+  renderAt(parseFloat(seek.value));
+});
+camSelect.addEventListener('change', () => {
+  camMode = camSelect.value;
+  orbit.enabled = camMode === 'free';
+  if (camMode === 'free') {
+    camera.position.set(40, 30, 50);
+    orbit.target.set(20, 0, 0);
+  }
+  renderAt(t);
+});
+speedSel.addEventListener('change', () => (speed = parseFloat(speedSel.value)));
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    playBtn.click();
+  } else if (e.code === 'ArrowRight') renderAt(t + (e.shiftKey ? 5 : 1));
+  else if (e.code === 'ArrowLeft') renderAt(t - (e.shiftKey ? 5 : 1));
+});
+
+window.__staff = {
+  duration: DURATION,
+  fps: video.fps,
+  chairTotal: chairs.total,
+  chairCounts: chairs.counts,
+  async setTime(time) {
+    camMode = 'auto';
+    playing = false;
+    renderAt(time);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return currentState && { t: currentState.t, scene: currentState.scene, chip: currentState.hud.chip, step: currentState.hud.step };
+  },
+  getState: () => currentState,
+  three: { renderer, scene, camera, venue, foyer, persons },
+  ready: true,
+};
+renderAt(0);
+if (!CAPTURE) {
+  playing = true;
+  playBtn.textContent = '❚❚ 一時停止';
+}
+loop();

@@ -86,13 +86,17 @@ function makeCeilingTexture() {
   return tex;
 }
 
-export function buildVenue() {
+export function buildVenue(opts = {}) {
   const group = new THREE.Group();
   group.name = 'venue';
   // 南側（z+、帯1側・カメラ側）の要素。カメラが外側にあるときは非表示にして内部を見せる
   const south = new THREE.Group();
   south.name = 'south';
   group.add(south);
+  // 東側（ホワイエの上）の観覧席。スタッフ向け動画で必要に応じて隠す
+  const east = new THREE.Group();
+  east.name = 'east';
+  group.add(east);
   const f = venue.floor;
   const W = f.xMax - f.xMin;
   const D = f.zMax - f.zMin;
@@ -138,7 +142,8 @@ export function buildVenue() {
   };
   south.add(wallOuter(outer.xMax, outer.zMax, outer.xMin, outer.zMax));
   group.add(wallOuter(outer.xMin, outer.zMin, outer.xMax, outer.zMin));
-  group.add(wallOuter(outer.xMax, outer.zMin, outer.xMax, outer.zMax));
+  const eastOuter = wallOuter(outer.xMax, outer.zMin, outer.xMax, outer.zMax);
+  group.add(eastOuter);
   group.add(wallOuter(outer.xMin, outer.zMax, outer.xMin, outer.zMin));
 
   // ---- 観覧席下の壁（床の縁、収納庫などの部屋の壁）。収納庫の扉は開口にする ----
@@ -180,9 +185,32 @@ export function buildVenue() {
   if (storageIsSouth) group.add(lowWall(venue.stage.xBack, f.xMax, f.zMin - 0.15));
   else south.add(lowWall(venue.stage.xBack, f.xMax, f.zMax + 0.15));
   // 東側（x+, ステージの反対側）
-  const eWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, lowH, D + 0.6), lowMat);
-  eWall.position.set(f.xMax + 0.15, lowH / 2, cz);
-  group.add(eWall);
+  // opts.eastDoors = [{z, w, h}] を渡すと、体育館とホワイエの間の壁に出入口の開口を作る
+  const eDoors = (opts.eastDoors || []).slice().sort((a, b) => a.z - b.z);
+  if (!eDoors.length) {
+    const eWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, lowH, D + 0.6), lowMat);
+    eWall.position.set(f.xMax + 0.15, lowH / 2, cz);
+    group.add(eWall);
+  } else {
+    let zc0 = f.zMin - 0.3;
+    const zEnd = f.zMax + 0.3;
+    const seg = (za, zb) => {
+      if (zb - za < 0.02) return;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, lowH, zb - za), lowMat);
+      m.position.set(f.xMax + 0.15, lowH / 2, (za + zb) / 2);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      group.add(m);
+    };
+    for (const d of eDoors) {
+      seg(zc0, d.z - d.w / 2);
+      const lin = new THREE.Mesh(new THREE.BoxGeometry(0.3, lowH - d.h, d.w), lowMat);
+      lin.position.set(f.xMax + 0.15, d.h + (lowH - d.h) / 2, d.z);
+      group.add(lin);
+      zc0 = d.z + d.w / 2;
+    }
+    seg(zc0, zEnd);
+  }
 
   // ---- 観覧席（赤い座席）: 左右（z±）と奥（x+）、床より高い位置 ----
   const seatMat = new THREE.MeshStandardMaterial({ color: gal.seatColor, roughness: 0.7 });
@@ -218,9 +246,9 @@ export function buildVenue() {
   };
   addGallery(W - 2, gal.depth, gal.rows, placeSouth, south);
   addGallery(W - 2, gal.depth, gal.rows, placeNorth);
-  addGallery(D - 2, gal.depth, gal.rows, placeEast);
+  addGallery(D - 2, gal.depth, gal.rows, placeEast, east);
   const tmp = new THREE.Object3D();
-  for (const parent of [group, south]) {
+  for (const parent of [group, south, east]) {
     const mine = seats.filter((s) => s.parent === parent);
     const seatInst = new THREE.InstancedMesh(seatGeo, seatMat, mine.length);
     mine.forEach((s, i) => {
@@ -257,7 +285,7 @@ export function buildVenue() {
   };
   addRail(venue.stage.xBack + 1, f.zMax + 0.3, f.xMax, f.zMax + 0.3, south);
   addRail(venue.stage.xBack + 1, f.zMin - 0.3, f.xMax, f.zMin - 0.3);
-  addRail(f.xMax + 0.3, f.zMin - 0.3, f.xMax + 0.3, f.zMax + 0.3);
+  addRail(f.xMax + 0.3, f.zMin - 0.3, f.xMax + 0.3, f.zMax + 0.3, east);
 
   // ---- ステージ（左）：前縁が曲面で床側に張り出す ----
   const st = venue.stage;
@@ -394,5 +422,5 @@ export function buildVenue() {
     zMax: roomZ + roomD / 2,
     yMax: lowH,
   };
-  return { group, south, ceiling: ceil, storageRoom: room, storageBox, seatCount: inst.count, outer, floorCenter: { x: cx, z: cz } };
+  return { group, south, east, eastOuter, ceiling: ceil, storageRoom: room, storageBox, seatCount: inst.count, outer, floorCenter: { x: cx, z: cz } };
 }

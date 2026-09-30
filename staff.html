@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>市村記念体育館 運営スタッフ注意喚起 3Dアニメーション</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="gl"></canvas>
+      <div id="hud">
+        <div id="hud-title">
+          <div class="venue">市村記念体育館｜運営スタッフ向け 注意喚起</div>
+          <div class="phase"><span id="hud-chip" class="chip"></span><span id="hud-step"></span></div>
+        </div>
+        <div id="hud-right">
+          <div id="hud-clock" class="clock"><span class="lbl">開場</span><span class="time">17:00</span></div>
+          <div id="hud-panel" class="panel2"></div>
+        </div>
+        <div id="hud-clock-big" class="clock-big"><div class="lbl">開場</div><div class="time">17:00</div></div>
+        <div id="hud-sub"></div>
+        <div id="hud-note">※ 位置関係・人数は概略。未確定の部分は仮</div>
+        <div id="hud-progress"><div id="hud-progress-bar"></div><div id="hud-markers"></div></div>
+      </div>
+    </div>
+    <div id="controls">
+      <button id="btn-play" title="再生/一時停止">▶ 再生</button>
+      <input id="seek" type="range" min="0" max="90" step="0.033" value="0" />
+      <span id="time">0.0 / 90.0 s</span>
+      <label>カメラ
+        <select id="cam-select">
+          <option value="auto">自動（タイムライン）</option>
+          <option value="free">自由（ドラッグで回転）</option>
+        </select>
+      </label>
+      <label>速度
+        <select id="speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="snd" /> 音（プレビューは無音。音は動画に含まれます）</label>
+    </div>
+    <script type="module" src="./src/staff/staffMain.js"></script>
+  </body>
+</html>

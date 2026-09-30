@@ -11,7 +11,10 @@
     "verify:seating": "node scripts/verify_seating.mjs",
     "render": "node scripts/render.mjs",
     "checks": "node scripts/checks.mjs",
-    "verify:video": "node scripts/verify_video.mjs"
+    "verify:video": "node scripts/verify_video.mjs",
+    "checks:staff": "node scripts/checks_staff.mjs",
+    "render:staff": "node scripts/render_staff.mjs",
+    "verify:staff": "node scripts/verify_staff.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"
