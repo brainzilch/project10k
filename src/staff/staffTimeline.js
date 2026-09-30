@@ -1,13 +1,14 @@
 // 運営スタッフ注意喚起動画：時刻 t から場面の状態を決定的に計算する（乱数は固定シード）。
-import { layout, parking, stations, T, receptionParts, receptionSteps, quietParts, songBreakAt, rules, staffVideo } from './staffConfig.js';
+import { layout, parking, stations, T, receptionParts, receptionSteps, quietParts, pickup, entry, talk, late, rules, staffVideo } from './staffConfig.js';
 import { prepKeyframes, sampleKeyframes, PALETTE } from './people.js';
 import { buildSeating } from '../seating.js';
-import { clamp01, lerp, smooth } from '../timeline.js';
+import { lerp, smooth, clamp01 } from '../timeline.js';
 
 const PI = Math.PI;
 const FACE = { W: -PI / 2, E: PI / 2, N: PI, S: 0 }; // W=-x(ステージ側) E=+x(玄関側) N=-z(上手側) S=+z(下手側)
 const inR = (t, [a, b]) => t >= a && t < b;
-const Q = (i) => ({ x: layout.queue.x0 + i * layout.queue.pitch, z: layout.queue.z });
+const Q = (i) => ({ x: layout.queue.x0 + i * layout.queue.pitch, z: layout.queue.z }); // チケット受け取りの列
+const WQ = (i) => ({ x: layout.waitQueue.x0 + i * layout.waitQueue.pitch, z: layout.waitQueue.z }); // 開場待ちの列
 
 // ---------------------------------------------------------------- 座席（設営動画と同じ配置）
 const seating = buildSeating();
@@ -16,178 +17,122 @@ const seatOf = (i) => {
   return { x: c.x, z: c.z, yaw: c.rotY };
 };
 
-// ---------------------------------------------------------------- 人物（キーフレーム）
-const kf = (arr) => prepKeyframes(arr);
+// ---------------------------------------------------------------- 人物・車
 const V = PALETTE.visitors;
 const actors = [];
-const add = (id, def) => actors.push({ id, ...def, kfs: kf(def.kfs) });
+const add = (id, def) => actors.push({ id, ...def, kfs: prepKeyframes(def.kfs) });
 
-// 受付
+/** 折れ線 pts を速さ speed で歩くキーフレームを返す（先頭が startT の位置）。 */
+function walk(startT, pts, speed = 2.7) {
+  const out = [{ t: startT, ...pts[0] }];
+  let t = startT;
+  for (let i = 1; i < pts.length; i++) {
+    const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z);
+    t += Math.max(0.25, d / speed);
+    out.push({ t, ...pts[i] });
+  }
+  return out;
+}
+
+// ---- 受け取り窓口の列（チケット受け取りの人）と、その後の動き ----
+const S = pickup.serve;
+function boothQueue(i) {
+  const k = [{ t: 0, ...Q(i), yaw: FACE.W }];
+  let slot = i;
+  for (let j = 0; j < i; j++) {
+    k.push({ t: S[j] + 0.3, ...Q(slot) });
+    slot -= 1;
+    k.push({ t: S[j] + 1.1, ...Q(slot) });
+  }
+  return k;
+}
+const toFoyerRoute = (from) => [from, { x: 43.6, z: -2.4 }, { x: 40.9, z: -1.8 }, { x: 37.6, z: -1.0 }, { x: 34.2, z: 2.2 }];
+
 add('S_booth', {
   staff: true,
-  armUp: [[17.4, 19.0], [22.4, 23.6]],
-  kfs: [{ t: 0, x: layout.booth.x1 - 1.0, z: layout.booth.windowZ, yaw: FACE.E }, { t: 30, x: layout.booth.x1 - 1.0, z: layout.booth.windowZ, hide: true }],
-});
-add('V1', {
-  color: V[0],
-  kfs: [
-    { t: 0, ...Q(0), yaw: FACE.W },
-    { t: 19.4, ...Q(0) },
-    { t: 21.0, x: 43.6, z: -1.8 },
-    { t: 23.2, x: 38.6, z: -1.8 },
-    { t: 26.0, x: 36.0, z: -0.8 },
-    { t: 29.0, x: 34.6, z: 0.6 },
-    { t: 30, x: 34.6, z: 0.6, hide: true },
-  ],
-});
-add('V2', {
-  color: V[1],
-  kfs: [
-    { t: 0, ...Q(1), yaw: FACE.W },
-    { t: 20.0, ...Q(1) },
-    { t: 21.0, ...Q(0) },
-    { t: 23.8, ...Q(0) },
-    { t: 25.4, x: 43.6, z: -1.8 },
-    { t: 27.5, x: 38.6, z: -1.8 },
-    { t: 29.6, x: 36.4, z: 1.8 },
-    { t: 30, x: 36.4, z: 1.8, hide: true },
-  ],
-});
-add('V3', {
-  color: V[2],
-  kfs: [
-    { t: 0, ...Q(2), yaw: FACE.W },
-    { t: 20.0, ...Q(2) },
-    { t: 21.0, ...Q(1) },
-    { t: 24.0, ...Q(1) },
-    { t: 25.0, ...Q(0) },
-    { t: 30, ...Q(0), hide: true },
-  ],
-});
-add('V4', {
-  color: V[3],
-  kfs: [
-    { t: 0, ...Q(3), yaw: FACE.W },
-    { t: 20.0, ...Q(3) },
-    { t: 21.0, ...Q(2) },
-    { t: 24.0, ...Q(2) },
-    { t: 25.0, ...Q(1) },
-    { t: 30, ...Q(1), hide: true },
-  ],
-});
-add('V5', {
-  color: V[4],
-  kfs: [
-    { t: 0, x: 56.6, z: layout.queue.z, yaw: FACE.W },
-    { t: 6, x: 56.6, z: layout.queue.z },
-    { t: 12, ...Q(4) },
-    { t: 20.0, ...Q(4) },
-    { t: 21.0, ...Q(3) },
-    { t: 24.0, ...Q(3) },
-    { t: 25.0, ...Q(2) },
-    { t: 30, ...Q(2), hide: true },
-  ],
-});
-add('V6', {
-  color: V[5],
-  kfs: [
-    { t: 0, x: 61, z: layout.queue.z, yaw: FACE.W },
-    { t: 6, x: 61, z: layout.queue.z },
-    { t: 14, ...Q(5) },
-    { t: 20.0, ...Q(5) },
-    { t: 21.0, ...Q(4) },
-    { t: 24.0, ...Q(4) },
-    { t: 25.0, ...Q(3) },
-    { t: 30, ...Q(3), hide: true },
-  ],
-});
-// 2階トイレへ向かう来場者（受け渡し完了後は開場前でも自由に利用可）
-add('T1', {
-  color: V[6],
-  kfs: [
-    { t: 24.0, x: 36.6, z: -2.6, yaw: FACE.N },
-    { t: 24.6, x: 35.4, z: -5.4, y: 0 },
-    { t: 26.0, x: 35.4, z: -8.4, y: 1.4 },
-    { t: 26.4, x: 35.4, z: -9.6, y: 1.4 },
-    { t: 26.8, x: 36.4, z: -9.6, y: 1.4 },
-    { t: 28.2, x: 40.1, z: -9.6, y: 4.2 },
-    { t: 28.9, x: 40.2, z: -5.5, y: 4.2 },
-    { t: 29.7, x: 42.6, z: -5.5, y: 4.2 },
-    { t: 30, x: 42.6, z: -5.5, y: 4.2, hide: true },
-  ],
+  armUp: pickup.armWindows,
+  kfs: [{ t: 0, x: layout.booth.x1 - 1.0, z: layout.booth.windowZ, yaw: FACE.E }],
 });
 
-// 開場（17:00）：館長室と放送室の間のドア（下手側）と上手側のドアから入場。チケット確認は行わない。
-const wkf = (start, from, viaLower, seat) => {
-  // from: 待機位置。ドアを通って体育館へ進み、途中で場面が切り替わる
-  const door = viaLower ? { x: layout.eastWallX, z: layout.gymDoors[1].z } : { x: layout.eastWallX, z: layout.gymDoors[0].z };
-  const pre = viaLower ? { x: 30.0, z: 4.4 } : { x: 29.4, z: -4.2 };
-  return [
-    { t: 30, ...from, yaw: FACE.W },
-    { t: start, ...from },
-    { t: start + 1.7, ...pre },
-    { t: start + 3.3, ...door },
-    { t: start + 6.6, x: 21.0, z: door.z },
-    { t: 41.9, x: 18.6, z: door.z + (viaLower ? 0.4 : -0.4), hide: true },
-  ];
-};
-add('W1', { color: V[0], kfs: wkf(34.0, { x: 32.6, z: 3.4 }, true) });
-add('W3', { color: V[2], kfs: wkf(34.4, { x: 33.6, z: 4.6 }, true) });
-add('W6', { color: V[5], kfs: wkf(34.8, { x: 32.2, z: 5.0 }, true) });
-add('W2', { color: V[1], kfs: wkf(34.2, { x: 32.0, z: -3.4 }, false) });
-add('W4', { color: V[3], kfs: wkf(34.6, { x: 33.0, z: -4.6 }, false) });
-add('W5', { color: V[4], kfs: wkf(35.0, { x: 32.4, z: -2.2 }, false) });
+// 開場待ちの列へ進む人（受け取りの列の 0,2,3,4,5 番目）
+const DOORQ = [
+  { id: 'V1', i: 0 },
+  { id: 'V3', i: 2 },
+  { id: 'V4', i: 3 },
+  { id: 'V5', i: 4 },
+  { id: 'V6', i: 5 },
+];
+const HIDE_AT = 41.95; // 開場のシーンが終わる直前で消す
+DOORQ.forEach((p, m) => {
+  const k = boothQueue(p.i);
+  const route = walk(S[p.i] + 0.2, [...toFoyerRoute(Q(0)), WQ(m)]);
+  k.push(...route);
+  // 前の人が確認を済ませるたびに、1歩ずつ前へ詰める
+  let slot = m;
+  for (let j = 0; j < m; j++) {
+    const c = entry.checks[j];
+    k.push({ t: c + 0.6, ...WQ(slot) });
+    slot -= 1;
+    k.push({ t: c + 1.4, ...WQ(slot) });
+  }
+  // 自分の番：確認 → ドアを通って体育館へ
+  const c = entry.checks[m];
+  k.push({ t: c, ...WQ(0) });
+  k.push(...walk(c + 0.3, [WQ(0), { x: 28.4, z: 4.3 }, { x: 27.15, z: 4.4 }, { x: 24.6, z: 4.4 }, { x: 22.0, z: 4.7 }], 2.2).slice(1));
+  const clipped = k.filter((q) => q.t <= HIDE_AT);
+  const last = clipped[clipped.length - 1];
+  if (clipped.length < k.length) clipped.push({ t: HIDE_AT + 0.01, x: last.x, z: last.z, hide: true });
+  else last.hide = true;
+  add(p.id, { color: V[p.i], kfs: clipped });
+});
 
-// 配置スタッフ（公演中）
-add('S_gate', { staff: true, marker: 'staff', kfs: [{ t: 30, x: stations.gate.x, z: stations.gate.z, yaw: FACE.E }] });
-add('S_foyer', { staff: true, marker: 'staff', kfs: [{ t: 30, x: stations.foyerDoor.x - 2.0, z: stations.foyerDoor.z, yaw: FACE.W }] });
-add('S_L1', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallLower[0], yaw: FACE.N }] });
-add('S_L2', {
+// 2階のトイレへ行く人（受け取りの列の1番目）：受け取り後は開場前でも自由に使える
+{
+  const k = boothQueue(1);
+  const r = walk(S[1] + 0.2, [Q(0), { x: 43.6, z: -2.4 }, { x: 40.9, z: -1.8 }, { x: 37.0, z: -2.4 }], 2.7);
+  k.push(...r);
+  const t0 = r[r.length - 1].t;
+  k.push({ t: t0 + 1.0, x: 35.4, z: -5.4, y: 0 });
+  k.push({ t: t0 + 2.3, x: 35.4, z: -8.4, y: 1.4 });
+  k.push({ t: t0 + 2.8, x: 35.4, z: -9.6, y: 1.4 });
+  k.push({ t: t0 + 3.2, x: 36.4, z: -9.6, y: 1.4 });
+  k.push({ t: t0 + 4.4, x: 40.1, z: -9.6, y: 4.2, hide: true });
+  add('V2', { color: V[1], kfs: k });
+}
+
+// スタッフ：左手のドアの前（チケットの再確認）
+add('S_door', {
   staff: true,
   marker: 'staff',
   kfs: [
-    { t: 56, ...stations.wallLower[1], yaw: FACE.N },
-    { t: 62.0, ...stations.wallLower[1] },
-    { t: 64.6, x: 13.5, z: stations.wallLower[1].z },
-    { t: 64.7, x: 13.5, z: stations.wallLower[1].z, yaw: FACE.N },
+    { t: 30, x: stations.doorStaff.x, z: stations.doorStaff.z, yaw: FACE.E - 0.5 },
+    // 公演中の私語の例：玄関のスタッフのところへ歩いていって話し込み、注意されて戻る
+    { t: talk.walk[0], x: stations.doorStaff.x, z: stations.doorStaff.z },
+    { t: talk.walk[1], x: stations.talkSpot.x, z: stations.talkSpot.z, yaw: FACE.E },
+    { t: talk.back[0], x: stations.talkSpot.x, z: stations.talkSpot.z },
+    { t: talk.back[1], x: stations.doorStaff.x, z: stations.doorStaff.z, yaw: FACE.E - 0.5 },
   ],
 });
+add('S_gate', { staff: true, marker: 'staff', kfs: [{ t: 56, x: stations.gate.x, z: stations.gate.z, yaw: FACE.W + 0.4 }] });
+add('S_L1', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallLower[0], yaw: FACE.N }] });
+add('S_L2', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallLower[1], yaw: FACE.N }] });
 add('S_U1', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallUpper[0], yaw: FACE.S }] });
 add('S_U2', { staff: true, marker: 'staff', kfs: [{ t: 56, ...stations.wallUpper[1], yaw: FACE.S }] });
 
-// 駐車場の入口スタッフ（北側・南側に各1名）と、迷っている方
-add('P_N', { staff: true, marker: 'staff', kfs: [{ t: 42, x: parking.northGate.x, z: parking.northGate.z + 2, yaw: FACE.S }, { t: 58, x: parking.northGate.x, z: parking.northGate.z + 2, hide: true }] });
-add('P_S', { staff: true, marker: 'staff', kfs: [{ t: 42, x: parking.southGate.x, z: parking.southGate.z + 2, yaw: FACE.S }, { t: 58, x: parking.southGate.x, z: parking.southGate.z + 2, hide: true }] });
-add('LV', {
-  color: 0x2f6fdd,
-  marker: 'visitor',
-  kfs: [
-    { t: 42, x: 62, z: 16, yaw: FACE.W },
-    { t: 46.5, x: 54, z: 22 },
-    { t: 48.5, x: 58, z: 27 },
-    { t: 50.5, x: 56, z: 25 },
-    { t: 57.9, x: 56, z: 52 },
-    { t: 58, x: 56, z: 52, hide: true },
-  ],
-});
-
-// 遅れて来た方：入場は曲間のみ
-const lateSeat = seatOf(268);
+// 途中入場の方（曲間はないので、演奏中に暗幕をくぐって入る）
 add('LV_late', {
   color: 0x2f6fdd,
   kfs: [
-    { t: 63.0, x: 45.0, z: 1.8, yaw: FACE.W },
-    { t: 66.0, x: 39.2, z: 1.8 },
-    { t: 77.4, x: 39.2, z: 1.8, yaw: FACE.W },
-    { t: 78.6, x: 33.0, z: 3.6 },
-    { t: 79.7, x: 29.6, z: 4.4 },
-    { t: 80.6, x: layout.eastWallX, z: 4.4 },
-    { t: 82.0, x: 21.5, z: 4.4 },
-    { t: 82.3, x: 21.5, z: 4.4, hide: true },
+    ...walk(late.arrive, [{ x: 46.0, z: 1.8 }, { x: 40.0, z: 1.8 }, { x: 34.4, z: 3.4 }, WQ(0)], 2.4),
+    { t: late.pass[0], ...WQ(0) },
+    { t: late.pass[0] + 0.9, x: 28.4, z: 4.4 },
+    { t: late.pass[0] + 1.35, x: 27.15, z: 4.4 },
+    { t: late.pass[0] + 2.0, x: 25.0, z: 4.4 },
+    { t: late.pass[1], x: 22.2, z: 4.8, hide: true },
   ],
 });
 
-// 着席している観客（固定の席・42秒から）
+// 着席している観客（42 秒から）
 const audienceIdx = [];
 for (let k = 0; k < 44; k++) audienceIdx.push((5 + k * 6 + (k % 3)) % 300);
 audienceIdx.forEach((si, k) => {
@@ -195,25 +140,62 @@ audienceIdx.forEach((si, k) => {
   add('A' + k, { color: V[k % V.length], kfs: [{ t: 42, x: s.x, z: s.z, yaw: s.yaw, seat: true }] });
 });
 
-export const ACTORS = actors;
+// ---- 駐車場（市村記念体育館の関係者駐車場入口）----
+// スタッフが入口に立ち、停めに来た車を主な有料駐車場（佐嘉神社外苑駐車場）へ案内する。
+const P = parking;
+add('P_staff', {
+  staff: true,
+  marker: 'staff',
+  armUp: [[48.2, 51.4]],
+  kfs: [{ t: 42, x: P.entrance.x + 2.2, z: P.entrance.z, yaw: -PI / 2 }, { t: 58, x: P.entrance.x + 2.2, z: P.entrance.z, hide: true }],
+});
+add('CAR', {
+  car: true,
+  kfs: [
+    { t: 43.4, x: P.road.eastbound, z: P.entrance.z - 62, yaw: 0, keepYaw: true },
+    { t: 46.8, x: P.road.eastbound, z: P.entrance.z - 5, yaw: 0, keepYaw: true },
+    { t: 47.8, x: P.road.eastbound + 1.2, z: P.entrance.z - 1.6, yaw: PI / 4, keepYaw: true },
+    { t: 48.6, x: P.entrance.x - 2.0, z: P.entrance.z, yaw: PI / 2, keepYaw: true },
+    { t: 51.2, x: P.entrance.x - 2.0, z: P.entrance.z, yaw: PI / 2, keepYaw: true },
+    { t: 52.4, x: P.road.eastbound + 0.6, z: P.entrance.z, yaw: PI / 2, keepYaw: true },
+    { t: 53.4, x: P.road.eastbound, z: P.entrance.z + 3.0, yaw: PI / 6, keepYaw: true },
+    { t: 54.2, x: P.road.eastbound, z: P.entrance.z + 9.0, yaw: 0, keepYaw: true },
+    { t: 58, x: P.road.eastbound, z: P.entrance.z + 52.0, yaw: 0, keepYaw: true, hide: true },
+  ],
+});
 
-// ---------------------------------------------------------------- ドア
-const OPEN_ANIM = {
-  lower: [
-    [32.6, 34.0, 1], [45.0, 46.5, 0], [78.3, 79.1, 1], [81.7, 82.7, 0],
-  ],
-  upper: [
-    [33.0, 34.4, 1], [45.0, 46.5, 0],
-  ],
-};
-function doorOpen(id, t) {
-  let v = 0;
-  for (const [a, b, to] of OPEN_ANIM[id]) {
-    if (t < a) return v;
-    if (t < b) return lerp(v, to, smooth((t - a) / (b - a)));
-    v = to;
-  }
-  return v;
+export const ACTORS = actors;
+const actorById = Object.fromEntries(actors.map((a) => [a.id, a]));
+
+// ---------------------------------------------------------------- ドア・暗幕・光
+function ramp(t, [a, b], from, to) {
+  return lerp(from, to, smooth((t - a) / (b - a)));
+}
+function doorLower(t) {
+  if (t < entry.openAt[0]) return 0;
+  if (t < entry.openAt[1]) return ramp(t, entry.openAt, 0, 1);
+  if (t < entry.closeAt[0]) return 1;
+  if (t < entry.closeAt[1]) return ramp(t, entry.closeAt, 1, 0);
+  if (t < late.doorOpen[0]) return 0;
+  if (t < late.doorOpen[1]) return ramp(t, late.doorOpen, 0, 0.9);
+  if (t < late.doorClose[0]) return 0.9;
+  if (t < late.doorClose[1]) return ramp(t, late.doorClose, 0.9, 0);
+  return 0;
+}
+function curtainState(t) {
+  const drop = t < late.curtainDrop[0] ? 0 : t < late.curtainDrop[1] ? ramp(t, late.curtainDrop, 0.02, 1) : 1;
+  // 通る人が押し分けるように、下側が体育館の側へ少し揺れる
+  const mid = (late.pass[0] + 1.35);
+  const swing = t < mid - 0.9 || t > mid + 1.4 ? 0 : Math.sin(clamp01((t - (mid - 0.9)) / 2.3) * PI);
+  return { drop: t < late.curtainDrop[0] ? 0 : drop, swing };
+}
+function lightState(t) {
+  // ドアが開いていて暗幕がないとき、ホワイエの光がホールに差し込む
+  const open = doorLower(t);
+  const c = curtainState(t).drop;
+  const amount = open * (1 - c);
+  const duringLate = t >= late.doorOpen[0] && t < late.doorClose[1];
+  return duringLate ? amount : 0;
 }
 
 // ---------------------------------------------------------------- カメラ
@@ -230,14 +212,20 @@ const C = {
   toilet2: { pos: [47, 13, 9], target: [37, 1.5, -6.5] },
   deck1: { pos: [62, 11, -1], target: [42.5, 5.0, -8] },
   deck2: { pos: [58, 10.5, -1], target: [42.5, 5.0, -8] },
-  open1: { pos: [58, 11.5, 5], target: [29, 0, 0.5] },
-  open2: { pos: [51, 10.5, 5], target: [28, 0, 0.5] },
-  park1: { pos: [55, 150, 190], target: [55, 0, 52] },
-  park2: { pos: [55, 132, 172], target: [55, 0, 58] },
-  quiet1: { pos: [30, 17, 34], target: [13, 0, -1] },
-  quiet2: { pos: [27, 15, 31], target: [12, 0, -1] },
-  late1: { pos: [48, 21, 36], target: [23, 0, 1.0] },
-  late2: { pos: [45, 19, 33], target: [22, 0, 1.0] },
+  twoQ1: { pos: [62, 17, 15], target: [38, 0, 0] },
+  twoQ2: { pos: [58, 15, 13], target: [36, 0, 1.5] },
+  door1: { pos: [44, 9, 10], target: [30, 1.2, 4.2] },
+  door2: { pos: [41, 7.5, 9], target: [28.8, 1.2, 4.2] },
+  mapA: { pos: [-112, 96, 48], target: [-12, 0, 48] },
+  mapB: { pos: [-104, 88, 44], target: [-12, 0, 44] },
+  car1: { pos: [-66, 21, -6], target: [-41, 1.5, 12] },
+  car2: { pos: [-63, 19, -2], target: [-41, 1.5, 12] },
+  mapC: { pos: [-100, 84, 40], target: [-10, 0, 46] },
+  talk1: { pos: [48, 16, 15], target: [31, 0, 1.5] },
+  talk2: { pos: [45, 14, 13], target: [31, 0, 2] },
+  corr: { pos: [35.2, 2.7, 4.7], target: [26.0, 1.3, 4.3] },
+  wide1: { pos: [48, 21, 36], target: [23, 0, 1.0] },
+  wide2: { pos: [45, 19, 33], target: [22, 0, 1.0] },
 };
 const camSched = [
   [T.intro, C.ovA, C.ovB],
@@ -246,10 +234,14 @@ const camSched = [
   [receptionParts.handover, C.enter1, C.enter2],
   [[25, 28.3], C.toilet1, C.toilet2],
   [[28.3, 30], C.deck1, C.deck2],
-  [T.open, C.open1, C.open2],
-  [T.parking, C.park1, C.park2],
-  [[58, 72], C.quiet1, C.quiet2],
-  [[72, 82], C.late1, C.late2],
+  [[30, 36], C.twoQ1, C.twoQ2],
+  [[36, 42], C.door1, C.door2],
+  [[42, 47], C.mapA, C.mapB],
+  [[47, 53.2], C.car1, C.car2],
+  [[53.2, 58], C.mapB, C.mapC],
+  [[58, 71.2], C.talk1, C.talk2],
+  [[71.2, 77.4], C.corr, C.corr],
+  [[77.4, 82], C.wide1, C.wide2],
   [T.outro, C.ovB, C.ovA],
 ];
 export function cameraAt(t) {
@@ -257,125 +249,141 @@ export function cameraAt(t) {
   for (const s of camSched) if (inR(t, s[0])) seg = s;
   const [[t0, t1], a, b] = seg;
   const k = smooth((t - t0) / (t1 - t0));
-  return {
-    pos: a.pos.map((v, i) => lerp(v, b.pos[i], k)),
-    target: a.target.map((v, i) => lerp(v, b.target[i], k)),
-    up: [0, 1, 0],
-  };
+  return { pos: a.pos.map((v, i) => lerp(v, b.pos[i], k)), target: a.target.map((v, i) => lerp(v, b.target[i], k)), up: [0, 1, 0] };
 }
 
-// ---------------------------------------------------------------- ラベル（3D スプライト）
+// ---------------------------------------------------------------- ラベル（3D スプライト。fs は画面上の文字サイズ px）
 export const LABEL_DEFS = [
   { id: 'booth', text: '受け渡し窓口（1か所・机なし）', pos: [41.4, 4.0, -5.25], fs: 34, t: [6, 25] },
-  { id: 'queue', text: '行列は窓口の正面からまっすぐ', pos: [46.0, 3.0, -5.25], fs: 34, t: [6, 20] },
+  { id: 'queue', text: 'チケット受け取りの列（窓口の正面からまっすぐ）', pos: [47.5, 3.0, -5.25], fs: 32, t: [6, 20] },
   { id: 'toilet', text: '2階トイレ（位置は仮）', pos: [42.8, 7.6, -7.8], fs: 34, t: [25, 30] },
-  { id: 'doorLow', text: '館長室と放送室の間のドア', pos: [29.0, 3.7, 4.4], fs: 34, t: [30, 42] },
-  { id: 'doorUp', text: '上手側のドア', pos: [29.0, 3.7, -4.2], fs: 34, t: [30, 42] },
-  { id: 'noSeat2', text: '2階席は着席NG', pos: [20.0, 6.8, -12.0], fs: 38, t: [35, 42] },
-  { id: 'gate', text: '玄関 1名', pos: [36.2, 4.6, -3.0], fs: 34, t: [73, 82] },
-  { id: 'foyer', text: 'ホワイエ 1名', pos: [29.8, 3.4, 3.5], fs: 34, t: [73, 77.4] },
-  { id: 'lower', text: '下手の壁際 2名', pos: [8, 3.6, 16.9], fs: 34, t: [73, 82] },
-  { id: 'upper', text: '上手の壁際 2名', pos: [10, 3.6, -16.9], fs: 34, t: [73, 82] },
-  { id: 'wait', text: '曲間まで待機', pos: [40.5, 3.2, 4.4], fs: 34, t: [66, 77.4] },
-  { id: 'enter', text: '曲間に入場', pos: [33.0, 3.4, 6.4], fs: 34, t: [77.6, 82] },
-  { id: 'noSeat3', text: '2階席は着席NG', pos: [3.0, 6.8, -19.6], fs: 36, t: [58, 66] },
+  { id: 'queueA', text: 'チケット受け取りの列', pos: [47.8, 3.0, -5.25], fs: 34, t: [30, 36] },
+  { id: 'queueB', text: '開場待ちの列', pos: [34.4, 3.0, 4.4], fs: 36, t: [30, 42] },
+  { id: 'doorLow', text: '入口は左手のドアだけ', pos: [27.6, 3.9, 4.4], fs: 34, t: [33, 42] },
+  { id: 'doorUp', text: '上手側のドアは使わない', pos: [27.6, 3.9, -4.2], fs: 34, t: [33, 42] },
+  { id: 'check', text: 'ドアの前でチケットを再確認', pos: [30.6, 3.4, 6.6], fs: 32, t: [33, 42] },
+  { id: 'noSeat2', text: '2階席は着席NG', pos: [20.0, 6.8, -12.0], fs: 36, t: [37, 42] },
+  // 駐車場（市村記念体育館の関係者駐車場入口）
+  { id: 'pkVenue', text: '市村記念体育館', pos: [16, 14, 0], fs: 34, t: [42, 47] },
+  { id: 'pkEntrance', text: '関係者駐車場入口（スタッフ1名）', pos: [-36.5, 6.0, 12], fs: 34, t: [42, 47.6] },
+  { id: 'pkEntrance2', text: '関係者駐車場入口（スタッフ1名）', pos: [-36.5, 6.0, 12], fs: 34, t: [51.8, 58] },
+  { id: 'pkStaffLot', text: '市村駐車場（関係者のみ）', pos: [-22, 6.0, 41], fs: 34, t: [42, 47] },
+  { id: 'pkShrine', text: '主な有料駐車場（佐嘉神社外苑駐車場）', pos: [-18, 12, 96], fs: 34, t: [42, 47] },
+  { id: 'pkShrine2', text: '有料駐車場へどうぞ', pos: [-38, 9, 75], fs: 36, t: [53.2, 58] },
+  { id: 'pkSay', text: '関係者のみです。有料駐車場へどうぞ', pos: [-38.0, 5.2, 12], fs: 36, t: [48.4, 51.6] },
+  // 公演中（ホワイエも含む）
+  { id: 'lightWarn', text: 'ドアを開けるとホワイエの光が差し込む', pos: [25.6, 3.4, 4.4], fs: 34, t: [71.6, 73.4] },
+  { id: 'curtain', text: 'ドアに暗幕を1枚垂らす', pos: [25.6, 3.4, 4.4], fs: 36, t: [73.4, 77.4] },
+  { id: 'gate', text: '玄関 1名', pos: [37.0, 4.8, -3.0], fs: 34, t: [77.6, 82] },
+  { id: 'foyerDoor', text: 'ホワイエのドア 1名', pos: [29.8, 3.6, 7.0], fs: 34, t: [77.6, 82] },
+  { id: 'lower', text: '下手の壁際 2名', pos: [8, 3.6, 16.9], fs: 34, t: [77.6, 82] },
+  { id: 'upper', text: '上手の壁際 2名', pos: [10, 3.6, -16.9], fs: 34, t: [77.6, 82] },
 ];
 
-// ---------------------------------------------------------------- 効果（波紋・吹き出し・×）
+// ---------------------------------------------------------------- 効果（波紋・吹き出し・×・✔）
 function ripples(t) {
   const out = [];
-  const life = 1.7;
-  // 足音：S_L2 が歩く間 0.6 秒ごと
-  for (let k = 0; k < 5; k++) {
-    const ts = 62.2 + 0.55 * k;
-    if (t >= ts && t < ts + life) {
-      const a = sampleKeyframes(actorById.S_L2.kfs, ts);
-      out.push({ x: a.x, z: a.z, u: (t - ts) / life, kind: 'step' });
+  // 足音：ドア前のスタッフが歩く間 0.52 秒ごと
+  for (let k = 0; k < 6; k++) {
+    const ts = talk.walk[0] + 0.5 + 0.52 * k;
+    if (t >= ts && t < ts + 1.9) {
+      const a = sampleKeyframes(actorById.S_door.kfs, ts);
+      out.push({ x: a.x, z: a.z, u: (t - ts) / 1.9, kind: 'step' });
     }
   }
-  // 会話：S_L1 と S_L2 の間で 66.4〜69.5
+  // 会話
   for (let k = 0; k < 5; k++) {
-    const ts = 66.4 + 0.65 * k;
-    if (t >= ts && t < ts + 2.0 && ts < 69.6) {
-      for (const id of ['S_L1', 'S_L2']) {
+    const ts = talk.chat[0] + 0.62 * k;
+    if (t >= ts && t < ts + 2.2 && ts < talk.chat[1]) {
+      for (const id of ['S_door', 'S_gate']) {
         const a = sampleKeyframes(actorById[id].kfs, ts);
-        out.push({ x: a.x, z: a.z, u: (t - ts) / 2.0, kind: 'talk' });
+        out.push({ x: a.x, z: a.z, u: (t - ts) / 2.2, kind: 'talk' });
       }
     }
   }
   return out;
 }
-const actorById = Object.fromEntries(actors.map((a) => [a.id, a]));
+function checks(t) {
+  const out = [];
+  entry.checks.forEach((c) => {
+    if (t >= c && t < c + 1.0) out.push({ x: layout.waitQueue.x0 - 0.2, z: layout.waitQueue.z, u: (t - c) / 1.0 });
+  });
+  return out;
+}
 
 // ---------------------------------------------------------------- HUD 文言
 function hud(t) {
-  const H = { chip: '', chipClass: 'info', step: '', sub: '', panel: null, clockBig: false, scene: '' };
+  const H = { chip: '', chipClass: 'info', step: '', sub: '', panel: null, clockBig: null, scene: '', compass: false, phase: 'none' };
   const steps3 = ['予約のお名前を確認', 'リストで照合', 'チケットをお渡し'];
   if (inR(t, T.intro)) {
     H.scene = 'intro';
     H.chip = '運営スタッフ向け';
     H.step = '本日の運営で気をつける3つのこと';
-    H.sub = '① 受付　② 駐車場案内　③ 公演中の私語を慎む。開場は 17:00 です。';
+    H.sub = '① 受付　② 駐車場案内　③ 公演中は静かに。チケットの受け渡しは 16:30 から、開場は 17:00 です。';
     H.panel = { title: '3つのこと', items: ['① 受付', '② 駐車場案内', '③ 公演中は静かに'], active: -1 };
   } else if (inR(t, T.reception)) {
     H.scene = 'reception';
     H.chip = '① 受付';
     H.chipClass = 'setup';
-    H.step = 'チケットの受け渡し（もぎりなし）';
-    if (inR(t, receptionParts.queue)) H.sub = '担当：佐賀県文化課／LiveS Beyond事務局。窓口は玄関の庇の下・右手に1か所、机はありません。';
+    H.step = 'チケットの受け渡し（16:30 から）';
+    H.phase = 'recv';
+    if (t < 9.6) H.clockBig = { lbl: '受け渡し開始', time: '16:30' };
+    if (inR(t, receptionParts.queue)) H.sub = '16:30 からチケットの受け渡しを開始（開場は 17:00）。担当：佐賀県文化課／LiveS Beyond事務局。窓口は玄関の庇の下・右手に1か所、机なし。';
     else if (inR(t, receptionParts.steps)) {
-      H.sub = '行列は窓口の正面からまっすぐ。当日券も同じ窓口。引換用チケットは松永さん保管→山浦さんへ。';
+      H.sub = '列は窓口の正面からまっすぐ。当日券も同じ窓口。引換用チケットは松永さん保管→山浦さんへ。';
       let a = -1;
       receptionSteps.forEach((s, i) => {
         if (t >= s.t) a = i;
       });
       H.panel = { title: '窓口の手順', items: steps3.map((s, i) => `${i + 1}  ${s}`), active: a, showUntil: a + 1 };
-    } else if (inR(t, receptionParts.handover)) {
-      H.sub = rules.ticketCheckAtDoor
-        ? '受け渡しが完了した方から入館。開場後、左手のドアでチケットを確認して入場します。'
-        : '受け渡しが完了した方のみ入館できます。入場時のチケット確認（もぎり）はありません。';
-    } else H.sub = '受け渡し後は、玄関の2階のトイレを開場前でも自由に使えます。';
+    } else if (inR(t, receptionParts.handover)) H.sub = '受け取りが終わった方は、左手のドアの前で開場待ち。玄関やトイレまで入っている方もいます。';
+    else H.sub = '受け取り後は、玄関の2階のトイレを開場前でも自由に使えます。';
   } else if (inR(t, T.open)) {
     H.scene = 'open';
     H.chip = '開場 17:00';
     H.chipClass = 'setup';
-    H.step = '17:00 になったら、ドアを開けて開場';
-    H.clockBig = t < 38;
-    H.sub =
-      t < 36
-        ? rules.ticketCheckAtDoor
-          ? '館長室と放送室の間のドアと上手側のドアを開ける。左手のドアでチケットを確認して入場。'
-          : '館長室と放送室の間のドアと、上手側のドアを開けます。チケット確認は行いません。'
-        : '2階席は着席NG。玄関とホワイエのドアに各1名が立ちます。';
+    H.step = '列は2つ：「受け取り」と「開場待ち」';
+    H.phase = 'open';
+    if (t < 37) H.clockBig = { lbl: '開場', time: '17:00' };
+    if (t < 33) H.sub = '「チケット受け取りの人」は窓口の正面、「開場待ちの人」は左手のドアの前に並びます。';
+    else if (t < 37) H.sub = '17:00 に、会場内の入口は左手のドアだけを開けます。上手側のドアは使いません。';
+    else H.sub = 'ドアの前でスタッフがチケットを再確認して入場。2階席は着席NGです。';
   } else if (inR(t, T.parking)) {
     H.scene = 'parking';
     H.chip = '② 駐車場案内';
     H.chipClass = 'setup';
-    H.step = '「駐車場なし」は案内済み。迷った方をフォロー';
-    if (t < 48.5) H.sub = '駐車場がないことは、チラシ・申込フォームで案内済み。迷っている方がいれば案内します。';
-    else if (t < 53) H.sub = '市村駐車場は関係者のみ。案内先は主な有料駐車場（佐嘉神社外苑駐車場・会場の東 約95 m）。';
-    else H.sub = '駐車場の北側入口・南側入口に各1名が立ちます。位置関係は概略です。';
+    H.step = '関係者駐車場の入口で、停めに来た方をフォロー';
+    H.compass = true;
+    if (t < 47) H.sub = '赤枠の位置が市村記念体育館の関係者駐車場入口。ここにスタッフが1名立ちます。神社側には配置しません。';
+    else if (t < 53.2) H.sub = 'お客さんは停められません。他の有料駐車場を案内します。';
+    else H.sub = '案内先は主な有料駐車場（佐嘉神社外苑駐車場・会場の東 約95 m）。';
   } else if (inR(t, T.quiet)) {
     H.scene = 'quiet';
     H.chip = '③ 公演中';
     H.chipClass = 'teardown';
-    H.step = '公演中は私語を慎む';
-    const items = ['足音・ドアの音が響く', '会話は必要最低限に', '遅れた方の入場は曲間のみ'];
-    if (inR(t, quietParts.intro)) {
-      H.sub = '足音が響き、各ドアの遮音性も低い会場です。演奏は生音に近い音量で行います。';
+    H.step = '公演中は、ホワイエも含めて静かに';
+    const items = ['足音・ドアの音が響く', '会話は必要最低限に', '途中入場は暗幕をくぐって静かに'];
+    if (inR(t, quietParts.steps)) {
+      H.sub = '足音が響き、各ドアの遮音性も低い会場です。ホワイエの音もホールに届きます。演奏は生音に近い音量です。';
       H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 0, showUntil: 1 };
     } else if (inR(t, quietParts.talk)) {
-      H.sub = '玄関付近を含め、スタッフ同士の会話は必要最低限にとどめます。';
+      H.sub = '玄関付近・ホワイエを含め、スタッフ同士の会話は必要最低限にとどめます。';
       H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 1, showUntil: 2 };
+    } else if (inR(t, quietParts.late)) {
+      H.sub =
+        t < late.curtainDrop[0]
+          ? '曲はすべてつながっていて曲間はありません。途中入場でドアを開けると、ホワイエの光がホールに差し込みます。'
+          : 'ドアに暗幕を1枚垂らして光を遮り、途中入場の方はそっと通します。';
+      H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 2, showUntil: 3 };
     } else {
-      H.sub = '壁際は下手・上手に各2名、玄関とホワイエのドアに各1名。遅れた方の入場は曲間のみ。';
+      H.sub = '公演中の配置：壁際は下手・上手に各2名、玄関とホワイエのドアに各1名。演奏が終わるまで静かに。';
       H.panel = { title: '公演中に気をつけること', items: items.map((s, i) => `${i + 1}  ${s}`), active: 2, showUntil: 3 };
     }
   } else {
     H.scene = 'outro';
     H.chip = 'まとめ';
     H.step = '受付・駐車場案内・私語を慎む';
-    H.sub = '受付は 予約名→リスト照合→チケットをお渡し。迷った方は有料駐車場へ。公演中は静かに。';
+    H.sub = '列は「受け取り」と「開場待ち」の2つ。市村の駐車場は関係者のみ。公演中はホワイエも静かに。';
     const a = t < 84 ? 0 : t < 86 ? 1 : 2;
     H.panel = { title: '3つのこと', items: ['① 受付', '② 駐車場案内', '③ 公演中は静かに'], active: a, showUntil: 3 };
   }
@@ -391,23 +399,27 @@ export function computeStaffState(t) {
     if (s.vis && a.armUp) s.armUp = a.armUp.some(([x, y]) => t >= x && t < y);
     people[a.id] = s;
   }
+  const scene = hud(t).scene;
   const labels = {};
   for (const l of LABEL_DEFS) labels[l.id] = inR(t, l.t);
-  const scene = hud(t).scene;
+  const talkBubbles = t >= talk.chat[0] && t < talk.chat[1];
   return {
     t,
+    scene,
     people,
     camera: cameraAt(t),
-    doors: { lower: doorOpen('lower', t), upper: doorOpen('upper', t) },
+    doors: { lower: doorLower(t), upper: 0 },
+    curtain: curtainState(t),
+    light: lightState(t),
     labels,
     ripples: ripples(t),
-    bubbles: t >= 66.4 && t < 69.6,
-    cross: t >= 69.7 && t < 72.6,
+    checks: checks(t),
+    bubbles: talkBubbles,
+    cross: t >= talk.cross[0] && t < talk.cross[1],
     hud: hud(t),
-    scene,
     deckVisible: scene !== 'open' && scene !== 'quiet' && !(t >= 24.5 && t < 28.3),
-    markerScale: scene === 'parking' ? 3.4 : scene === 'quiet' || scene === 'open' ? 1.15 : 0,
-    songBreak: t >= songBreakAt && t < songBreakAt + 3,
+    markerScale: scene === 'quiet' || scene === 'open' ? 1.15 : scene === 'parking' ? 2.2 : 0,
+    arrowVisible: t >= 53.2 && t < 58,
   };
 }
 

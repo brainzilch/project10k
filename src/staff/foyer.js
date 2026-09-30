@@ -200,7 +200,45 @@ export function buildFoyer() {
   box(deckGroup, T.x1 - T.x0, 2.7, T.z1 - T.z0, (T.x0 + T.x1) / 2, D.y + 1.35, (T.z0 + T.z1) / 2, MAT.wall);
   box(deckGroup, 1.0, 2.0, 0.08, (T.x0 + T.x1) / 2, D.y + 1.0, T.z1 + 0.02, MAT.door, false);
 
-  return { group, deckGroup, doors, booth, materials: MAT };
+  // ---- 暗幕（左手のドアの体育館側に1枚）と、ホワイエの光がホールに差し込む様子 ----
+  const Cn = L.curtain;
+  const cvs = document.createElement('canvas');
+  cvs.width = 256;
+  cvs.height = 64;
+  {
+    const g = cvs.getContext('2d');
+    g.fillStyle = '#0d0d10';
+    g.fillRect(0, 0, 256, 64);
+    for (let i = 0; i < 16; i++) {
+      g.fillStyle = i % 2 ? '#17171c' : '#050507';
+      g.fillRect(i * 16, 0, 16, 64);
+    }
+  }
+  const ctex = new THREE.CanvasTexture(cvs);
+  ctex.colorSpace = THREE.SRGBColorSpace;
+  const curtainPivot = new THREE.Group();
+  curtainPivot.position.set(Cn.x, Cn.h, Cn.z);
+  const curtainMesh = new THREE.Mesh(new THREE.PlaneGeometry(Cn.w, Cn.h), new THREE.MeshStandardMaterial({ map: ctex, roughness: 1, side: THREE.DoubleSide }));
+  curtainMesh.rotation.y = Math.PI / 2;
+  curtainMesh.position.y = -Cn.h / 2;
+  curtainMesh.castShadow = true;
+  curtainPivot.add(curtainMesh);
+  // カーテンレール
+  const rail2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, Cn.w + 0.4), MAT.frame);
+  rail2.position.set(Cn.x, Cn.h + 0.03, Cn.z);
+  group.add(rail2, curtainPivot);
+  curtainPivot.visible = false;
+
+  const wedgeGeo = new THREE.BufferGeometry();
+  const zc = Cn.z;
+  const verts = new Float32Array([27.0, 0.14, zc - 1.2, 27.0, 0.14, zc + 1.2, 18.5, 0.14, zc + 4.4, 27.0, 0.14, zc - 1.2, 18.5, 0.14, zc + 4.4, 18.5, 0.14, zc - 4.4]);
+  wedgeGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  const wedge = new THREE.Mesh(wedgeGeo, new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  wedge.visible = false;
+  wedge.renderOrder = 4;
+  group.add(wedge);
+
+  return { group, deckGroup, doors, booth, curtain: { pivot: curtainPivot, mesh: curtainMesh, h: Cn.h }, wedge, materials: MAT };
 }
 
 /** ドアの開き具合 k(0..1) を設定（ホワイエ側へ最大 95°）。 */

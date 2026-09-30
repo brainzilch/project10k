@@ -121,14 +121,38 @@ export function sampleKeyframes(kfs, t) {
   const dz = b.z - a.z;
   const dy = b.y - a.y;
   const moving = Math.hypot(dx, dz) > 0.05;
+  // keepYaw：車のように、向きをキーフレームの値から補間する（バックなどで進行方向と向きが違うため）
+  const yaw = a.keepYaw ? a.yaw + (b.yaw - a.yaw) * u : moving ? Math.atan2(dx, dz) : a.yaw;
   return {
     vis: true,
     x: a.x + dx * u,
     y: a.y + dy * u,
     z: a.z + dz * u,
-    yaw: moving ? Math.atan2(dx, dz) : a.yaw,
+    yaw,
     seat: !!a.seat && !moving,
     moving,
     phase: t * 7.5,
   };
+}
+
+/** 簡易な乗用車（車体・キャビン・タイヤ）。進行方向が +z。 */
+export function makeCar(color = 0x2f6fdd) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 4.2), new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.3 }));
+  body.position.y = 0.75;
+  body.castShadow = true;
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 2.2), new THREE.MeshStandardMaterial({ color: 0xbfd6e8, roughness: 0.2 }));
+  cab.position.set(0, 1.4, -0.2);
+  cab.castShadow = true;
+  g.add(body, cab);
+  const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.25, 14);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+  for (const [x, z] of [[-0.9, 1.3], [0.9, 1.3], [-0.9, -1.3], [0.9, -1.3]]) {
+    const w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.rotation.z = Math.PI / 2;
+    w.position.set(x, 0.36, z);
+    g.add(w);
+  }
+  g.userData = { isCar: true };
+  return g;
 }

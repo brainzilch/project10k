@@ -8,7 +8,7 @@ import { computeState as computeSetupState } from '../timeline.js';
 import { layout, T, staffVideo } from './staffConfig.js';
 import { buildFoyer, setDoorOpen } from './foyer.js';
 import { buildSurroundings } from './surroundings.js';
-import { makePerson, setPose } from './people.js';
+import { makePerson, setPose, makeCar } from './people.js';
 import { ACTORS, LABEL_DEFS, computeStaffState } from './staffTimeline.js';
 
 const params = new URLSearchParams(location.search);
@@ -91,7 +91,7 @@ const persons = {};
 const markers = {};
 const markerGeo = new THREE.RingGeometry(0.72, 1.0, 40);
 for (const a of ACTORS) {
-  const p = makePerson({ staff: !!a.staff, color: a.color });
+  const p = a.car ? makeCar(0x2f6fdd) : makePerson({ staff: !!a.staff, color: a.color });
   p.visible = false;
   scene.add(p);
   persons[a.id] = p;
@@ -115,6 +115,15 @@ for (const l of LABEL_DEFS) {
   scene.add(s);
   labelSprites[l.id] = s;
 }
+// ✔（チケット確認）
+const checkSprites = [];
+for (let i = 0; i < 4; i++) {
+  const sp = makeLabelSprite('✔', '#ffffff', 0x2ea043, { fontSize: 150 });
+  sp.scale.set(1.5, 1.5, 1);
+  sp.visible = false;
+  scene.add(sp);
+  checkSprites.push(sp);
+}
 const rippleMeshes = [];
 const rippleGeo = new THREE.RingGeometry(0.93, 1.0, 64);
 for (let i = 0; i < 16; i++) {
@@ -130,12 +139,10 @@ const bubbleR = makeFitSprite('…', { border: '#f2c14e', fontSize: 120 });
 bubbleL.visible = bubbleR.visible = false;
 scene.add(bubbleL, bubbleR);
 const cross = makeLabelSprite('×', '#ffffff', 0xd62828, { fontSize: 200 });
-cross.scale.set(6.4, 6.4, 1);
-cross.position.set(8.2, 4.6, 16.9);
+cross.scale.set(4.6, 4.6, 1);
 cross.visible = false;
 scene.add(cross);
-const crossText = makeFitSprite('会話は必要最低限に', { border: '#d62828' });
-crossText.position.set(8.2, 1.7, 16.9);
+const crossText = makeFitSprite('ホワイエ・玄関でも会話は必要最低限に', { border: '#d62828' });
 crossText.visible = false;
 scene.add(crossText);
 
@@ -148,6 +155,7 @@ const el = {
   panel: document.getElementById('hud-panel'),
   clockBig: document.getElementById('hud-clock-big'),
   clock: document.getElementById('hud-clock'),
+  compass: document.getElementById('hud-compass'),
   bar: document.getElementById('hud-progress-bar'),
   markers: document.getElementById('hud-markers'),
 };
@@ -172,8 +180,13 @@ function updateHud(st) {
   el.step.textContent = H.step;
   el.sub.textContent = H.sub;
   el.sub.className = H.chipClass;
+  el.compass.style.display = H.compass ? 'block' : 'none';
   el.clockBig.style.display = H.clockBig ? 'block' : 'none';
-  el.clock.style.display = st.scene === 'open' ? 'none' : 'flex';
+  if (H.clockBig) el.clockBig.innerHTML = `<div class="lbl">${H.clockBig.lbl}</div><div class="time">${H.clockBig.time}</div>`;
+  el.clock.style.display = H.clockBig ? 'none' : 'block';
+  el.clock.innerHTML =
+    `<div class="row ${H.phase === 'recv' ? 'on' : ''}"><span class="time">16:30</span><span class="lbl">チケット受け渡し開始</span></div>` +
+    `<div class="row ${H.phase === 'open' ? 'on' : ''}"><span class="time">17:00</span><span class="lbl">開場</span></div>`;
   if (H.panel) {
     el.panel.style.display = 'block';
     const P = H.panel;
@@ -192,7 +205,16 @@ let currentState = null;
 const camPos = new THREE.Vector3();
 function applyState(st, freeCam) {
   // 人物
-  for (const a of ACTORS) setPose(persons[a.id], st.people[a.id]);
+  for (const a of ACTORS) {
+    if (a.car) {
+      const c = st.people[a.id];
+      persons[a.id].visible = !!c.vis;
+      if (c.vis) {
+        persons[a.id].position.set(c.x, 0, c.z);
+        persons[a.id].rotation.y = c.yaw;
+      }
+    } else setPose(persons[a.id], st.people[a.id]);
+  }
   for (const [id, m] of Object.entries(markers)) {
     const p = st.people[id];
     m.visible = !!p.vis && st.markerScale > 0;
@@ -205,6 +227,25 @@ function applyState(st, freeCam) {
   for (const d of foyer.doors) setDoorOpen(d, st.doors[d.id]);
   // ラベル
   for (const l of LABEL_DEFS) labelSprites[l.id].visible = !!st.labels[l.id];
+  // 暗幕・光
+  const cur = foyer.curtain;
+  cur.pivot.visible = st.curtain.drop > 0.01;
+  cur.mesh.scale.y = Math.max(0.02, st.curtain.drop);
+  cur.mesh.position.y = -(cur.h / 2) * Math.max(0.02, st.curtain.drop);
+  cur.pivot.rotation.z = -st.curtain.swing * 0.55;
+  foyer.wedge.visible = st.light > 0.01;
+  foyer.wedge.material.opacity = 0.62 * st.light;
+  // ✔
+  checkSprites.forEach((sp) => (sp.visible = false));
+  st.checks.slice(0, checkSprites.length).forEach((c, i) => {
+    const sp = checkSprites[i];
+    sp.visible = true;
+    sp.position.set(c.x, 2.5 + c.u * 0.5, c.z);
+    sp.material.opacity = 1 - Math.max(0, c.u - 0.7) / 0.3;
+  });
+  // 駐車場の矢印・入口の赤枠
+  surroundings.labels.arrow.visible = st.arrowVisible;
+  surroundings.labels.frame.visible = st.scene === 'parking';
   // 波紋
   rippleMeshes.forEach((m) => (m.visible = false));
   st.ripples.slice(0, rippleMeshes.length).forEach((r, i) => {
@@ -218,28 +259,28 @@ function applyState(st, freeCam) {
     m.material.opacity = 0.85 * (1 - r.u);
   });
   // 吹き出し・×
-  const l1 = st.people.S_L1;
-  const l2 = st.people.S_L2;
+  const l1 = st.people.S_door;
+  const l2 = st.people.S_gate;
   bubbleL.visible = bubbleR.visible = st.bubbles;
   if (st.bubbles) {
-    bubbleL.position.set(l1.x, 2.7, l1.z);
-    bubbleR.position.set(l2.x, 2.7, l2.z);
+    bubbleL.position.set(l1.x, 2.7, l1.z + 1.0);
+    bubbleR.position.set(l2.x, 2.7, l2.z - 1.0);
   }
   cross.visible = crossText.visible = st.cross;
+  const mid = { x: (l1.x + l2.x) / 2, z: (l1.z + l2.z) / 2 };
+  cross.position.set(mid.x, 4.6, mid.z);
+  crossText.position.set(mid.x, 2.7, mid.z);
   if (st.cross) {
     const k = 1 + 0.08 * Math.sin(st.t * 14);
-    cross.scale.set(6.4 * k, 6.4 * k, 1);
+    cross.scale.set(4.6 * k, 4.6 * k, 1);
   }
   // 可視性の切り替え
   const c = freeCam || st.camera;
   venue.south.visible = c.pos[2] <= cfg.venue.floor.zMax + 0.3;
   venue.east.visible = st.scene !== 'open' && st.scene !== 'quiet';
+  surroundings.group.visible = true;
   venue.ceiling.visible = c.pos[1] < 12 && st.scene !== 'open';
   foyer.deckGroup.visible = st.deckVisible;
-  surroundings.labels.lot.visible = surroundings.labels.north.visible = surroundings.labels.south.visible = st.scene === 'parking';
-  surroundings.labels.distance.visible = surroundings.labels.north_dir.visible = st.scene === 'parking';
-  surroundings.labels.venue.visible = st.scene === 'parking';
-  surroundings.labels.arrow.visible = st.scene === 'parking';
   // カメラ
   camera.up.set(0, 1, 0);
   camera.position.set(c.pos[0], c.pos[1], c.pos[2]);
@@ -253,7 +294,6 @@ function applyState(st, freeCam) {
     sp.scale.set((sp.userData.aspect || 4) * h, h, 1);
   };
   for (const l of LABEL_DEFS) fitSprite(labelSprites[l.id], labelSprites[l.id].userData.screenFont);
-  for (const [k, sp] of Object.entries(surroundings.labels)) if (sp.isSprite) fitSprite(sp, sp.userData.screenFont || 36);
   fitSprite(bubbleL, 56);
   fitSprite(bubbleR, 56);
   fitSprite(crossText, 44);

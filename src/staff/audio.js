@@ -274,14 +274,14 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
         lp.type = 'lowpass';
         lp.frequency.value = 900 + (k % 2) * 200;
         const g = ctx.createGain();
-        env(g, x, 0.004, 0.3 * (0.85 + rnd() * 0.3), 0.07);
+        env(g, x, 0.004, 0.3 * (c.gain || 1) * (0.85 + rnd() * 0.3), 0.07);
         n.connect(lp);
         lp.connect(g);
         g.connect(sfxBus);
         send(g, wet);
         const th = osc('sine', 85 + (k % 2) * 12, x, 0.15);
         const tg = ctx.createGain();
-        env(tg, x, 0.003, 0.22, 0.1);
+        env(tg, x, 0.003, 0.22 * (c.gain || 1), 0.1);
         th.connect(tg);
         tg.connect(sfxBus);
         send(tg, wet * 0.6);
@@ -331,6 +331,39 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
       cr.connect(bp);
       bp.connect(cg);
       cg.connect(sfxBus);
+    },
+    doorSoft(t) {
+      // そっと開閉するドア：低い擦れ音だけ
+      const n = noise(t, 0.8);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 420;
+      bp.Q.value = 1.4;
+      const g = ctx.createGain();
+      env(g, t, 0.25, 0.09, 0.45);
+      n.connect(bp);
+      bp.connect(g);
+      g.connect(sfxBus);
+      send(g, 0.3);
+      const th = osc('sine', 60, t + 0.7, 0.2);
+      const tg = ctx.createGain();
+      env(tg, t + 0.7, 0.01, 0.06, 0.12);
+      th.connect(tg);
+      tg.connect(sfxBus);
+    },
+    cloth(t) {
+      // 布がふわっと落ちる音
+      const n = noise(t, 0.9);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(2400, t);
+      lp.frequency.exponentialRampToValueAtTime(500, t + 0.7);
+      const g = ctx.createGain();
+      env(g, t, 0.08, 0.16, 0.6);
+      n.connect(lp);
+      lp.connect(g);
+      g.connect(sfxBus);
+      send(g, 0.2);
     },
     shh(t) {
       const n = noise(t, 1.2);
