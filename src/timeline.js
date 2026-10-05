@@ -97,14 +97,11 @@ function cameraSchedule() {
   add([fold1Start, fold1End], 'foldClose', 'foldClose2');
   add([fold1End, T.s3[1]], 'top');
   const tp = seatMarking.timing;
-  add([T.s4tape[0], T.s4tape[0] + tp.intro + 0.3], 'tapeObl', 'tapeObl');
-  add([T.s4tape[0] + tp.intro + 0.3, T.s4tape[1]], 'tapeTop');
   add(T.s4chairs, 'chairs', 'chairs2');
   add(T.s5, 'piano', 'piano2');
   add(T.complete, 'complete', 'complete2');
   add(T.t1, 'piano2', 'piano');
   add(T.t2chairs, 'chairs2', 'chairs');
-  add(T.t2tape, 'tapeTop');
   add(T.t3, 'top');
   add(T.t4, 'exhibit', 'exhibit2');
   add([T.t5[0], T.t5[1] + 1], 'storage', 'storage2');
@@ -531,38 +528,14 @@ function hudState(t, ctx) {
   } else if (inRange(t, T.s4)) {
     H.chip = '設営 4／5';
     H.chipClass = 'setup';
-    const tp = seatMarking.timing;
     const rows = chairCfg.rowsPerSector.length;
-    const steps = ['中心に × 印（基準点）', 'A・B・C の3つのゾーンの外周を、直線のテープで囲む', '範囲の中に、前から順に椅子を置く', '通路はゾーンの間の、テープのない帯'];
-    const mk = (a) => ({ title: '客席の並べ方（案）', items: steps.map((x, i2) => `${i2 + 1}  ${x}`), active: a, showUntil: a + 1 });
-    if (inRange(t, T.s4tape)) {
-      H.step = '④-1 床にテープで、椅子を置く範囲を先に囲む';
-      const z0 = T.s4tape[0] + tp.intro;
-      if (t < z0) {
-        H.sub = '演奏位置の中心に × 印のテープを貼ります。巻き尺の基準点です（テープは養生シートの上に貼る想定）。';
-        H.steps = mk(0);
-      } else {
-        const n = Math.min(seatMarking.order.length - 1, Math.floor((t - z0) / tp.perZone));
-        const sec = seatMarking.order[n];
-        const u = (t - z0 - n * tp.perZone) / tp.perZone;
-        const nm = { A: 'A（図の上側）', B: 'B（正面）', C: 'C（図の下側）' }[sec];
-        H.sub =
-          u < 0.35
-            ? `${nm}：巻き尺で4つの角の位置を出して、印をつけます。`
-            : `${nm}：角と角を直線のテープでつなぎ、外周を囲みます。列ごとの円弧は貼りません。`;
-        if (t >= z0 + seatMarking.order.length * tp.perZone - 0.3) H.sub = '3つのゾーンの外周ができました。通路は、ゾーンの間のテープのない帯です（仮の有効幅 1.4 m）。';
-        H.steps = mk(t >= z0 + seatMarking.order.length * tp.perZone - 0.3 ? 3 : 1);
-      }
-    } else {
-      H.step = '④-2 パイプ椅子300脚を、範囲の中に設置';
-      const secDur = (T.s4chairs[1] - T.s4chairs[0]) / 3;
-      const s = Math.min(2, Math.floor((t - T.s4chairs[0]) / secDur));
-      const names = ['A（図の上側）', 'B（正面）', 'C（図の下側）'];
-      H.sub = `${names[s]} を${rows}列、テープで囲んだ範囲の中に、前の列から順に置きます。通路を2本残します（仮配置）。`;
-      if (ctx.chairCount.total >= 300) H.sub = '300脚の設置完了。A・B・C 各100脚、通路2本を確認。';
-      H.steps = mk(2);
-      H.showCounter = true;
-    }
+    H.step = '④ パイプ椅子300脚を設置';
+    const secDur = (T.s4chairs[1] - T.s4chairs[0]) / 3;
+    const s = Math.min(2, Math.floor((t - T.s4chairs[0]) / secDur));
+    const names = ['A（図の上側）', 'B（正面）', 'C（図の下側）'];
+    H.sub = `${names[s]} を${rows}列、前の列から順に置きます。通路を2本残します（仮配置）。`;
+    if (ctx.chairCount.total >= 300) H.sub = '300脚の設置完了。A・B・C 各100脚、通路2本を確認。';
+    H.showCounter = true;
     H.badge = true;
   } else if (inRange(t, T.s5)) {
     H.chip = '設営 5／5';
@@ -587,8 +560,8 @@ function hudState(t, ctx) {
   } else if (inRange(t, T.t2)) {
     H.chip = '撤去 2／5';
     H.chipClass = 'teardown';
-    H.step = '② 椅子300脚を撤去し、床のテープをはがす';
-    H.sub = t < T.t2chairs[1] ? '全300脚を回収して客席を空にします。' : '続けて、床に貼った目印のテープをはがします（ゾーンごとに、最後に中心の × 印）。';
+    H.step = '② 椅子300脚を撤去';
+    H.sub = '全300脚を回収して客席を空にします。';
     H.showCounter = true;
     H.badge = true;
   } else if (inRange(t, T.t3)) {
