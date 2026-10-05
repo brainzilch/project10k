@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:," />
+    <title>audio render (setup)</title>
+  </head>
+  <body>
+    <script type="module">
+      import { renderStaffAudio } from './src/staff/audio.js';
+      import { timeline as T, video, photoTiming, sheetTiming, sheet, chairs } from './src/config.js';
+      import { exhibits } from './src/config.js';
+      // 設営・撤去動画の効果音と BGM。タイムライン（src/config.js）から時刻を計算するので、工程の長さを変えても追従する。
+      function makeCues() {
+        const cues = [];
+        const add = (t, type, o = {}) => cues.push({ t, type, ...o });
+        const bandN = sheet.bands.length;
+        // 完成イメージ
+        add(0.35, 'whoosh');
+        add(1.2, 'chime');
+        // 工程の切り替え（各工程の頭）
+        for (const k of ['s1', 's2', 's3', 's4', 's5', 't1', 't2', 't3', 't4', 't5']) add(T[k][0], 'pop');
+        // ① ロールを収納庫から出す（4本、0.9 秒ずつずらして）
+        for (let i = 0; i < bandN; i++) add(T.s1[0] + 0.3 + i * 0.9, 'rolling', { dur: 2.6, gain: 0.8 });
+        add(T.s1[0] + 0.1, 'door');
+        // ② 撮影 → 展示物を収納庫へ
+        add(T.s2[0] + photoTiming.flashAt, 'shutter');
+        add(T.s2[0] + photoTiming.thumbAt, 'ding', { note: 1 });
+        for (let j = 0; j < exhibits.length; j++) add(T.s2[0] + photoTiming.moveFrom + j * 0.8, 'rolling', { dur: 4.4, gain: 0.7 });
+        // ③ シートを1帯ずつ展開 → 折り返し → 完了
+        const bd = (T.s3[1] - T.s3[0]) / bandN;
+        for (let i = 0; i < bandN; i++) {
+          const b0 = T.s3[0] + i * bd;
+          const uEnd = b0 + bd * sheetTiming.unrollFrac;
+          add(b0, 'unroll', { dur: bd * sheetTiming.unrollFrac, gain: 1 });
+          add(uEnd + 0.2, 'thud', { gain: 0.7 });
+          add(b0 + bd * (sheetTiming.unrollFrac + sheetTiming.foldFrac) - 0.1, 'ding', { note: i === bandN - 1 ? 2 : 0 });
+        }
+        add(T.s3[1] - 0.1, 'success');
+        // ④ 椅子300脚：出現にあわせて「カチャッ」。100・200・300 脚で到達音
+        const secDur = (T.s4chairs[1] - T.s4chairs[0]) / chairs.order.length;
+        for (let s = 0; s < chairs.order.length; s++) {
+          for (let k = 0; k < 100; k += 2) {
+            const start = T.s4chairs[0] + s * secDur + (k / 100) * (secDur - chairs.appearDuration - 0.25);
+            add(start + 0.12, 'clack', { gain: 0.8 + ((k * 7) % 5) * 0.06 });
+          }
+          add(T.s4chairs[0] + (s + 1) * secDur - 0.1, 'ding', { note: s });
+        }
+        add(T.s4chairs[1] - 0.05, 'success');
+        // ⑤ ピアノを運ぶ
+        add(T.s5[0] + 0.6, 'rolling', { dur: T.s5[1] - T.s5[0] - 1.5, gain: 1 });
+        add(T.s5[1] - 0.8, 'thud', { gain: 0.8 });
+        // 完成
+        add(T.complete[0] + 0.1, 'chime');
+        add(T.complete[0] + 0.6, 'success');
+        add(T.complete[0] + 1.6, 'applause', { dur: 2.2 });
+        // 撤去① ピアノ
+        add(T.t1[0] + 0.5, 'rolling', { dur: T.t1[1] - T.t1[0] - 0.7, gain: 1 });
+        // 撤去② 椅子300脚を回収（一気に）
+        const w = T.t2chairs;
+        for (let i = 0; i < 300; i += 5) add(w[0] + ((299 - i) / 299) * (w[1] - w[0] - 0.4) + 0.1, 'clack', { gain: 0.9 });
+        // 撤去③ シート 4→1
+        const each = (T.t3[1] - T.t3[0]) / bandN;
+        for (let k = 0; k < bandN; k++) {
+          add(T.t3[0] + k * each + each * 0.3, 'unroll', { dur: each * 0.65, gain: 0.9 });
+          add(T.t3[0] + k * each + each * 0.97, 'thud', { gain: 0.6 });
+        }
+        // 撤去④ 展示物を復旧 → ✔
+        for (let j = 0; j < exhibits.length; j++) add(T.t4[0] + j * 0.45, 'rolling', { dur: 1.9, gain: 0.6 });
+        add(T.t4[1] - 0.6, 'ding', { note: 2 });
+        add(T.t4[1] - 0.3, 'success');
+        // 撤去⑤ ロールを収納庫へ → おしまい
+        for (let i = 0; i < bandN; i++) add(T.t5[0] + i * 0.15, 'rolling', { dur: T.t5[1] - T.t5[0] - 0.5, gain: 0.5 });
+        add(T.t5[1] - 0.6, 'chime');
+        return cues;
+      }
+      window.__audio = {
+        ready: true,
+        async render(opts = {}) {
+          const d = video.duration;
+          const v = (t, v) => ({ t, v });
+          const bgmPlan = {
+            off: !!opts.noBgm,
+            bpm: 100,
+            sections: [
+              { from: 0, to: T.s3[0], vol: 0.85, arp: true, lead: true, drums: false },
+              { from: T.s3[0], to: T.s4[0], vol: 0.8, arp: true, lead: false, drums: true },
+              { from: T.s4[0], to: T.complete[0], vol: 0.9, arp: true, lead: true, drums: true },
+              { from: T.complete[0], to: T.complete[1], vol: 1, arp: true, lead: true, drums: true },
+              { from: T.complete[1], to: d - 3, vol: 0.75, arp: true, lead: false, drums: true },
+              { from: d - 3, to: d, vol: 0.7, arp: false, lead: true, drums: false },
+            ],
+            bus: [v(0, 0.0001), v(0.8, 0.5), v(T.complete[0] - 0.5, 0.5), v(T.complete[0] + 0.5, 0.6), v(T.complete[1], 0.6), v(T.complete[1] + 1, 0.45), v(d - 2, 0.45), v(d - 0.05, 0.0001)],
+          };
+          return renderStaffAudio({ duration: d, cues: makeCues(), livePiano: null, bgmPlan });
+        },
+      };
+    </script>
+  </body>
+</html>

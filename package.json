@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "pdf": "node scripts/make_pdfs.mjs",
+    "audio": "node scripts/audio_setup.mjs",
     "verify:seating": "node scripts/verify_seating.mjs",
     "render": "node scripts/render.mjs",
     "checks": "node scripts/checks.mjs",

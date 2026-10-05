@@ -199,7 +199,7 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
   }
 
   // ---- 生演奏（公演中）：ゆっくりした原作のピアノ（9小節＋終止和音）----
-  {
+  if (livePiano) {
     const lb = 0.9;
     const t0 = livePiano.from;
     const roots = [48, 45, 41, 43, 48, 45, 41, 43, 48]; // C Am F G C Am F G C（左手）
@@ -473,6 +473,126 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
         env(g, t + dt, 0.004, 0.26, 1.6);
         for (const [mul, a] of [[1, 1], [2, 0.3], [3.01, 0.1]]) {
           const o = osc('sine', f * mul, t + dt, 2);
+          const og = ctx.createGain();
+          og.gain.value = a;
+          o.connect(og);
+          og.connect(g);
+        }
+        g.connect(sfxBus);
+        send(g, 0.5);
+      });
+    },
+    rolling(t, c) {
+      // 台車・ロールが転がる低いゴロゴロ音
+      const dur = c.dur || 2;
+      const n = noise(t, dur + 0.2);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 340;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.5 * (c.gain || 1), t + Math.min(0.4, dur / 3));
+      g.gain.setValueAtTime(0.5 * (c.gain || 1), t + dur - 0.4);
+      g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      const am = ctx.createGain();
+      am.gain.value = 0.6;
+      const l = osc('sine', 6.5, t, dur + 0.2);
+      const lg = ctx.createGain();
+      lg.gain.value = 0.35;
+      l.connect(lg);
+      lg.connect(am.gain);
+      n.connect(lp);
+      lp.connect(am);
+      am.connect(g);
+      g.connect(sfxBus);
+      send(g, 0.15);
+    },
+    shutter(t) {
+      for (const dt of [0, 0.075]) {
+        const n = noise(t + dt, 0.04);
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 2200;
+        const g = ctx.createGain();
+        env(g, t + dt, 0.001, 0.3, 0.025);
+        n.connect(hp);
+        hp.connect(g);
+        g.connect(sfxBus);
+        const th = osc('square', dt ? 520 : 760, t + dt, 0.04);
+        const tg = ctx.createGain();
+        env(tg, t + dt, 0.001, 0.07, 0.03);
+        th.connect(tg);
+        tg.connect(sfxBus);
+      }
+    },
+    unroll(t, c) {
+      // ロールが広がる「ザーッ」
+      const dur = c.dur || 3;
+      const n = noise(t, dur + 0.2);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.8;
+      bp.frequency.setValueAtTime(1500, t);
+      bp.frequency.exponentialRampToValueAtTime(700, t + dur);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.06 * (c.gain || 1), t + 0.3);
+      g.gain.setValueAtTime(0.06 * (c.gain || 1), t + dur - 0.5);
+      g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      n.connect(bp);
+      bp.connect(g);
+      g.connect(sfxBus);
+      send(g, 0.2);
+    },
+    thud(t, c) {
+      const o = osc('sine', 110, t, 0.4);
+      o.frequency.exponentialRampToValueAtTime(48, t + 0.18);
+      const g = ctx.createGain();
+      env(g, t, 0.003, 0.4 * (c.gain || 1), 0.2);
+      o.connect(g);
+      g.connect(sfxBus);
+      const n = noise(t, 0.2);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 420;
+      const ng = ctx.createGain();
+      env(ng, t, 0.003, 0.2, 0.12);
+      n.connect(lp);
+      lp.connect(ng);
+      ng.connect(sfxBus);
+      send(g, 0.25);
+    },
+    clack(t, c) {
+      // パイプ椅子を置く金属の「カチャッ」
+      const p = ctx.createStereoPanner();
+      p.pan.value = (rnd() * 2 - 1) * 0.6;
+      p.connect(sfxBus);
+      const base = 1500 + rnd() * 700;
+      for (const [mul, a] of [[1, 1], [1.52, 0.6], [2.31, 0.3]]) {
+        const o = osc('triangle', base * mul, t, 0.12);
+        const g = ctx.createGain();
+        env(g, t, 0.001, 0.07 * a * (c.gain || 1), 0.05);
+        o.connect(g);
+        g.connect(p);
+      }
+      const n = noise(t, 0.04);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 3200;
+      bp.Q.value = 1.2;
+      const ng = ctx.createGain();
+      env(ng, t, 0.001, 0.12 * (c.gain || 1), 0.025);
+      n.connect(bp);
+      bp.connect(ng);
+      ng.connect(p);
+    },
+    success(t) {
+      // 完了のきらきら
+      [[0, 784], [0.12, 988], [0.24, 1175], [0.36, 1568]].forEach(([dt, f]) => {
+        const g = ctx.createGain();
+        env(g, t + dt, 0.004, 0.2, 0.9);
+        for (const [mul, a] of [[1, 1], [2, 0.25]]) {
+          const o = osc('sine', f * mul, t + dt, 1.2);
           const og = ctx.createGain();
           og.gain.value = a;
           o.connect(og);
