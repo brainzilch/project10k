@@ -15,7 +15,7 @@ import {
   video,
 } from './config.js';
 
-import { buildSeating, seatRowArcs } from './seating.js';
+import { buildSeating, seatZones } from './seating.js';
 
 const DEG = Math.PI / 180;
 export const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -97,9 +97,8 @@ function cameraSchedule() {
   add([fold1Start, fold1End], 'foldClose', 'foldClose2');
   add([fold1End, T.s3[1]], 'top');
   const tp = seatMarking.timing;
-  const tSlow1 = T.s4tape[0] + tp.center + tp.slowRow;
-  add([T.s4tape[0], tSlow1 - 0.3], 'tapeObl', 'tapeObl');
-  add([tSlow1 - 0.3, T.s4tape[1]], 'tapeTop');
+  add([T.s4tape[0], T.s4tape[0] + tp.intro + 0.3], 'tapeObl', 'tapeObl');
+  add([T.s4tape[0] + tp.intro + 0.3, T.s4tape[1]], 'tapeTop');
   add(T.s4chairs, 'chairs', 'chairs2');
   add(T.s5, 'piano', 'piano2');
   add(T.complete, 'complete', 'complete2');
@@ -355,25 +354,35 @@ function chairProgress(t, n) {
   return p;
 }
 
-// ---------------------------------------------------------------- 床のテープ（椅子を並べる位置の目印）
-const SEAT_ROWS = seatRowArcs(buildSeating());
-export { SEAT_ROWS };
+// ---------------------------------------------------------------- 床のテープ（椅子を並べる範囲の目印）
+const ZONES = seatZones(buildSeating(), chairCfg, seatMarking.margin);
+export { ZONES };
+const zoneIndex = (sector) => chairCfg.order.indexOf(sector);
 /**
- * テープの状態。center: 中心の×印の進み(0..1)。arcs[行][ブロック]: 円弧の進み(0..1)。
- * workers: 作業者2人の姿勢。string: 紐の先（作業者2の位置）。labels: ラベルの表示。
+ * テープの状態。
+ *  centerP: 中心の×印の進み(0..1)。zones[i]: {sides:[4辺の進み 0..1], dots: 打った角の数}。
+ *  workers: 作業者2人。measure: 巻き尺（中心から作業者2までの線）。labels: ラベルの表示。
+ * 流れ：中心に×印 → ゾーンごとに「巻き尺で4つの角を決める → 角と角を直線のテープでつなぐ」。
+ * 通路は、ゾーンとゾーンの間のテープのない帯。
  */
 function tapeState(t) {
-  const N = SEAT_ROWS.length;
-  const st = { centerP: 0, arcs: SEAT_ROWS.map((r) => r.arcs.map(() => 0)), workers: [{ vis: false }, { vis: false }], string: null, labels: {} };
+  const st = {
+    centerP: 0,
+    zones: ZONES.map(() => ({ sides: [0, 0, 0, 0], dots: 0 })),
+    workers: [{ vis: false }, { vis: false }],
+    measure: null,
+    labels: {},
+    hidePerf: false,
+  };
   const full = () => {
     st.centerP = 1;
-    st.arcs = SEAT_ROWS.map((r) => r.arcs.map(() => 1));
+    st.zones = ZONES.map(() => ({ sides: [1, 1, 1, 1], dots: 4 }));
   };
   const tp = seatMarking.timing;
   const a0 = T.s4tape[0];
-  const tC1 = a0 + tp.center;
-  const tS1 = tC1 + tp.slowRow;
-  const tF1 = tS1 + tp.fastRows;
+  const order = seatMarking.order;
+  const zStart = (n) => a0 + tp.intro + n * tp.perZone; // n 番目に貼るゾーンの開始
+  const tEnd = zStart(order.length);
   if (!seatMarking.show) return st;
   if (inRange(t, T.intro)) {
     full();
@@ -381,12 +390,14 @@ function tapeState(t) {
   }
   if (t >= T.t2tape[1]) return st;
   if (inRange(t, T.t2tape)) {
-    // テープをはがす：後ろの列から順に。最後に中心の×印
+    // テープをはがす：C → A → B の逆順。最後に中心の×印
     const pp = (t - T.t2tape[0]) / (T.t2tape[1] - T.t2tape[0]);
     st.centerP = 1 - clamp01((pp - 0.85) / 0.15);
-    st.arcs = SEAT_ROWS.map((r, i) => {
-      const f = 1 - clamp01((pp / 0.85) * N - (N - 1 - i));
-      return r.arcs.map(() => f);
+    const rev = [...order].reverse();
+    st.zones = ZONES.map((z, zi) => {
+      const k = rev.indexOf(z.sector);
+      const f = 1 - clamp01((pp / 0.85) * rev.length - k);
+      return { sides: [f, f, f, f], dots: f > 0.02 ? 4 : 0 };
     });
     st.labels = { peel: true };
     st.hidePerf = true;
@@ -400,46 +411,49 @@ function tapeState(t) {
     return st;
   }
   // ---- 設営：テープを貼る ----
-  st.centerP = clamp01((t - a0) / tp.center);
-  const row0 = SEAT_ROWS[0];
-  const th0 = Math.min(...row0.arcs.map((a) => a.lo));
-  const th1 = Math.max(...row0.arcs.map((a) => a.hi));
-  const R = (i) => SEAT_ROWS[i].r - seatMarking.frontOffset;
-  let head = null;
-  if (t >= tC1) {
-    const u0 = clamp01((t - tC1) / tp.slowRow);
-    const thh = lerp(th0, th1, u0);
-    st.arcs[0] = row0.arcs.map((a) => clamp01((thh - a.lo) / (a.hi - a.lo)));
-    head = { x: R(0) * Math.cos(thh), z: R(0) * Math.sin(thh), th: thh, row: 0, moving: u0 > 0 && u0 < 1, slow: true };
-    if (t >= tS1) {
-      const q = clamp01((t - tS1) / tp.fastRows) * (N - 1);
-      for (let i = 1; i < N; i++) st.arcs[i] = SEAT_ROWS[i].arcs.map(() => clamp01(q - (i - 1)));
-      const cur = Math.min(N - 1, Math.max(1, Math.floor(q) + 1));
-      for (let i = 0; i < N; i++) if (i < cur) st.arcs[i] = st.arcs[i].map(() => 1);
-      head = { x: R(cur), z: 0.4 * Math.sin(t * 9), th: 0, row: cur, moving: t < tF1, slow: false };
-      if (t >= tF1) st.arcs = SEAT_ROWS.map((r) => r.arcs.map(() => 1));
-    }
-  }
-  const workEnd = tF1 + 0.5;
-  if (t < workEnd) {
-    st.workers[0] = { vis: true, x: 0.55, z: -0.2, yaw: head ? Math.atan2(head.x - 0.55, head.z + 0.2) : Math.PI / 2, moving: false, phase: 0 };
-    const start = { x: R(0) * Math.cos(th0), z: R(0) * Math.sin(th0) };
-    if (head && t < tF1) {
-      const tangent = head.slow ? Math.atan2(-Math.sin(head.th), Math.cos(head.th)) : Math.PI / 2;
-      st.workers[1] = { vis: true, x: head.x, z: head.z, yaw: tangent, moving: head.moving, phase: t * (head.slow ? 5 : 11) };
-      st.string = { x: head.x, z: head.z };
-    } else if (t >= tC1 - 0.8) {
-      st.workers[1] = { vis: true, x: start.x, z: start.z, yaw: Math.atan2(-Math.sin(th0), Math.cos(th0)), moving: false, phase: 0 };
-    }
-  }
   st.hidePerf = true;
-  st.labels = {
-    center: t < tC1 + 2.2,
-    string: t >= tC1 + 0.4 && t < tS1 - 0.8,
-    row1: t >= tS1 - 1.8 && t < tS1 + 0.4,
-    row14: t >= tF1 - 0.5,
-    aisle: t >= tF1 - 0.2,
-  };
+  st.centerP = clamp01((t - a0) / Math.min(tp.intro, 1.0));
+  st.labels = { center: t < zStart(0) + 0.8 };
+  let measureTo = null;
+  let workerPos = null;
+  order.forEach((sector, n) => {
+    const zi = zoneIndex(sector);
+    const z = ZONES[zi];
+    const t0 = zStart(n);
+    if (t < t0) return;
+    const u = clamp01((t - t0) / tp.perZone);
+    // 前半 35%：巻き尺で4つの角に印（点）を打つ。後半 65%：角と角を直線のテープでつなぐ（4辺）
+    const uDots = clamp01(u / 0.35);
+    const uTape = clamp01((u - 0.35) / 0.65);
+    st.zones[zi].dots = Math.floor(uDots * 4 + 0.0001) + (uDots >= 1 ? 0 : 0);
+    if (uDots >= 1) st.zones[zi].dots = 4;
+    for (let k = 0; k < 4; k++) st.zones[zi].sides[k] = clamp01(uTape * 4 - k);
+    // 作業者2：印の位置 → テープを貼る先端。作業者1：中心で巻き尺を押さえる
+    if (u < 1) {
+      if (u < 0.35) {
+        const kk = Math.min(3, Math.floor(uDots * 4));
+        const c = z.corners[kk];
+        measureTo = { x: c.x, z: c.z };
+        workerPos = { x: c.x, z: c.z, moving: true, yaw: Math.atan2(c.x, c.z) };
+      } else {
+        const side = Math.min(3, Math.floor(uTape * 4));
+        const f = clamp01(uTape * 4 - side);
+        const a = z.corners[side];
+        const b = z.corners[(side + 1) % 4];
+        const px = a.x + (b.x - a.x) * f;
+        const pz = a.z + (b.z - a.z) * f;
+        workerPos = { x: px, z: pz, moving: f > 0 && f < 1, yaw: Math.atan2(b.x - a.x, b.z - a.z) };
+      }
+    }
+    st.labels[`zone${sector}`] = u >= 0.35 && u < 1.0 + 0.9 / tp.perZone;
+    st.labels[`dots${sector}`] = u < 0.35;
+  });
+  if (t < tEnd + 0.5) {
+    st.workers[0] = { vis: true, x: 0.55, z: -0.2, yaw: workerPos ? Math.atan2(workerPos.x - 0.55, workerPos.z + 0.2) : Math.PI / 2, moving: false, phase: 0 };
+    if (workerPos) st.workers[1] = { vis: true, x: workerPos.x, z: workerPos.z, yaw: workerPos.yaw, moving: workerPos.moving, phase: t * 6 };
+  }
+  st.measure = measureTo;
+  if (t >= tEnd - 0.3) st.labels.aisle = true;
   return st;
 }
 
@@ -518,35 +532,35 @@ function hudState(t, ctx) {
     H.chip = '設営 4／5';
     H.chipClass = 'setup';
     const tp = seatMarking.timing;
-    const tC1 = T.s4tape[0] + tp.center;
-    const tS1 = tC1 + tp.slowRow;
-    const tF1 = tS1 + tp.fastRows;
     const rows = chairCfg.rowsPerSector.length;
-    const steps = ['中心に × 印（基準点）', '紐を中心に留め、列ごとの半径で円弧にテープ', 'テープの切れ目が通路（幅1.4 m）', '椅子は前脚をテープにそろえて並べる'];
+    const steps = ['中心に × 印（基準点）', 'A・B・C の3つのゾーンの外周を、直線のテープで囲む', '範囲の中に、前から順に椅子を置く', '通路はゾーンの間の、テープのない帯'];
     const mk = (a) => ({ title: '客席の並べ方（案）', items: steps.map((x, i2) => `${i2 + 1}  ${x}`), active: a, showUntil: a + 1 });
     if (inRange(t, T.s4tape)) {
-      H.step = '④-1 床にテープで、椅子を並べる位置の目印をつくる';
-      if (t < tC1) {
-        H.sub = '演奏位置の中心に × 印のテープを貼ります。ここが全部の列の基準点です（テープは養生シートの上に貼る想定）。';
+      H.step = '④-1 床にテープで、椅子を置く範囲を先に囲む';
+      const z0 = T.s4tape[0] + tp.intro;
+      if (t < z0) {
+        H.sub = '演奏位置の中心に × 印のテープを貼ります。巻き尺の基準点です（テープは養生シートの上に貼る想定）。';
         H.steps = mk(0);
-      } else if (t < tS1) {
-        H.sub = `紐（または巻き尺）の端を中心に留め、1列目の半径 ${chairCfg.r0} m でテープを円弧にそってなぞります。`;
-        H.steps = mk(1);
-      } else if (t < tF1) {
-        H.sub = `2列目以降は 0.9 m ずつ半径を増やして、同じように貼ります（早送り・全${rows}列）。`;
-        H.steps = mk(1);
       } else {
-        H.sub = 'テープの切れ目がそのまま通路になります（有効幅 1.4 m）。椅子は前脚をテープにそろえて置くだけで、列が曲がりません。';
-        H.steps = mk(2);
+        const n = Math.min(seatMarking.order.length - 1, Math.floor((t - z0) / tp.perZone));
+        const sec = seatMarking.order[n];
+        const u = (t - z0 - n * tp.perZone) / tp.perZone;
+        const nm = { A: 'A（図の上側）', B: 'B（正面）', C: 'C（図の下側）' }[sec];
+        H.sub =
+          u < 0.35
+            ? `${nm}：巻き尺で4つの角の位置を出して、印をつけます。`
+            : `${nm}：角と角を直線のテープでつなぎ、外周を囲みます。列ごとの円弧は貼りません。`;
+        if (t >= z0 + seatMarking.order.length * tp.perZone - 0.3) H.sub = '3つのゾーンの外周ができました。通路は、ゾーンの間のテープのない帯です（仮の有効幅 1.4 m）。';
+        H.steps = mk(t >= z0 + seatMarking.order.length * tp.perZone - 0.3 ? 3 : 1);
       }
     } else {
-      H.step = '④-2 パイプ椅子300脚を設置（A・B・C 各100脚）';
+      H.step = '④-2 パイプ椅子300脚を、範囲の中に設置';
       const secDur = (T.s4chairs[1] - T.s4chairs[0]) / 3;
       const s = Math.min(2, Math.floor((t - T.s4chairs[0]) / secDur));
       const names = ['A（図の上側）', 'B（正面）', 'C（図の下側）'];
-      H.sub = `${names[s]} を${rows}列に、テープに前脚をそろえて配置中。通路を2本残します（仮配置）。`;
+      H.sub = `${names[s]} を${rows}列、テープで囲んだ範囲の中に、前の列から順に置きます。通路を2本残します（仮配置）。`;
       if (ctx.chairCount.total >= 300) H.sub = '300脚の設置完了。A・B・C 各100脚、通路2本を確認。';
-      H.steps = mk(3);
+      H.steps = mk(2);
       H.showCounter = true;
     }
     H.badge = true;
@@ -574,7 +588,7 @@ function hudState(t, ctx) {
     H.chip = '撤去 2／5';
     H.chipClass = 'teardown';
     H.step = '② 椅子300脚を撤去し、床のテープをはがす';
-    H.sub = t < T.t2chairs[1] ? '全300脚を回収して客席を空にします。' : '続けて、床に貼った目印のテープをはがします（後ろの列から、最後に中心の × 印）。';
+    H.sub = t < T.t2chairs[1] ? '全300脚を回収して客席を空にします。' : '続けて、床に貼った目印のテープをはがします（ゾーンごとに、最後に中心の × 印）。';
     H.showCounter = true;
     H.badge = true;
   } else if (inRange(t, T.t3)) {

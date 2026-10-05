@@ -77,29 +77,23 @@ workers.forEach((w) => {
   w.visible = false;
   scene.add(w);
 });
-const SR = marks.rows;
-const lerpAngle2 = (a, b, k) => a + (b - a) * k;
+const ZN = marks.zones;
+const zoneMid = (sec) => {
+  const z = ZN[cfg.chairs.order.indexOf(sec)];
+  const c = z.corners;
+  return { x: (c[0].x + c[1].x + c[2].x + c[3].x) / 4, z: (c[0].z + c[1].z + c[2].z + c[3].z) / 4 };
+};
 const markLabelDefs = {
   center: { text: '基準点：演奏位置の中心に × 印', pos: [0, 2.4, 0], fs: 36 },
-  string: { text: '紐（または巻き尺）の端を中心に留める', pos: [3.4, 0.9, 2.4], fs: 34 },
-  row1: { text: `1列目：半径 ${cfg.chairs.r0} m（各ブロック${cfg.chairs.rowsPerSector[0]}脚）`, pos: [cfg.chairs.r0 + 3.4, 1.2, -2.6], fs: 34 },
-  row14: {
-    text: `${cfg.chairs.rowsPerSector.length}列目：半径 ${SR[SR.length - 1].r.toFixed(2)} m（各ブロック${cfg.chairs.rowsPerSector[cfg.chairs.rowsPerSector.length - 1]}脚）`,
-    pos: [SR[SR.length - 1].r + 3.0, 1.2, 3.6],
-    fs: 34,
-  },
-  aisle: {
-    text: 'テープの切れ目＝通路（有効幅 1.4 m）',
-    pos: (() => {
-      const rw = SR[Math.floor(SR.length / 2)];
-      const th = (rw.arcs[0].hi + rw.arcs[1].lo) / 2; // A と B のあいだの通路
-      return [(rw.r - 0.2) * Math.cos(th) + 3.2, 1.2, (rw.r - 0.2) * Math.sin(th) - 0.6];
-    })(),
-    fs: 34,
-  },
-  align: { text: 'テープに前脚をそろえて並べる', pos: [cfg.chairs.r0 + 0.9, 2.1, 0], fs: 36 },
-  peel: { text: 'テープをはがす（後ろの列から）', pos: [cfg.chairs.r0 + 6, 2.1, 0], fs: 36 },
+  peel: { text: 'テープをはがす（ゾーンごとに）', pos: [cfg.chairs.r0 + 6, 2.1, 0], fs: 36 },
+  align: { text: 'テープの範囲の中に椅子を置く', pos: [cfg.chairs.r0 + 6, 2.1, 0], fs: 36 },
+  aisle: { text: 'ゾーンの間＝通路（テープなし）', pos: [8.5, 1.2, -3.0], fs: 34 },
 };
+for (const sec of cfg.chairs.order) {
+  const m = zoneMid(sec);
+  markLabelDefs[`zone${sec}`] = { text: `${sec}：外周を直線のテープで囲む`, pos: [m.x - 3.2, 1.4, m.z + (sec === 'A' ? -3.0 : sec === 'C' ? 3.0 : 0)], fs: 34 };
+  markLabelDefs[`dots${sec}`] = { text: `${sec}：巻き尺で4つの角に印`, pos: [m.x - 3.2, 1.4, m.z + (sec === 'A' ? -3.0 : sec === 'C' ? 3.0 : 0)], fs: 34 };
+}
 const markLabels = {};
 for (const [k, d] of Object.entries(markLabelDefs)) {
   const sp = makeFitSprite(d.text, { border: '#ffffff' });

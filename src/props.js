@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { chairs as chairCfg, performance, exhibits as exhibitCfg, sheet as sheetCfg, storage, pa as paCfg, seatMarking as markCfg } from './config.js';
-import { buildSeating, verifySeating, frontRowOuterChair, seatRowArcs } from './seating.js';
+import { buildSeating, verifySeating, frontRowOuterChair, seatZones } from './seating.js';
 import { stageFrontX } from './venue.js';
 import { venue } from './config.js';
 
@@ -96,24 +96,21 @@ export function buildChairs() {
   return { group, layout, update, counts: v.counts, total: v.total };
 }
 
-// ---------------------------------------------------------------- 椅子を並べる位置の目印（養生テープ）
+// ---------------------------------------------------------------- 椅子を並べる範囲の目印（養生テープ）
 /**
- * 演奏位置の中心の × 印、列ごとの円弧のテープ、中心から作業者へ張る紐。
- * tape: timeline.js の tapeState()。arcs の進み具合に合わせて円弧を伸ばす。
+ * A・B・C の3つのゾーンの外周を、直線の養生テープで囲む（薄い黄色の帯）。
+ * zones: seatZones() の結果。progress は zone ごとの辺の進み具合 0..4（辺 k が 1 で貼り終わり）。
+ * 椅子を置く前に、まず範囲を決める。通路は、ゾーンとゾーンの間のテープのない帯になる。
  */
 export function buildSeatMarks() {
-  const rows = seatRowArcs(buildSeating());
+  const zones = seatZones(buildSeating(), chairCfg, markCfg.margin);
   const group = new THREE.Group();
   group.name = 'seatMarks';
-  const mat = new THREE.MeshBasicMaterial({ color: markCfg.tapeColor, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
-  const SEG = 72;
-  const y = 0.075;
-  const arcs = rows.map((rw) =>
-    rw.arcs.map((a) => {
-      const R = rw.r - markCfg.frontOffset;
-      const geo = new THREE.RingGeometry(R - markCfg.tapeWidth / 2, R + markCfg.tapeWidth / 2, SEG, 1, a.lo, a.hi - a.lo);
-      const m = new THREE.Mesh(geo, mat);
-      m.rotation.x = Math.PI / 2; // 円弧の角度が +x から +z へ向かうように床に寝かせる
+  const mat = new THREE.MeshBasicMaterial({ color: markCfg.tapeColor, transparent: true, opacity: markCfg.tapeOpacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+  const y = 0.08;
+  const sides = zones.map((z) =>
+    z.corners.map((_, k) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1, 0.012, markCfg.tapeWidth), mat);
       m.position.y = y;
       m.renderOrder = 3;
       m.visible = false;
@@ -121,10 +118,22 @@ export function buildSeatMarks() {
       return m;
     }),
   );
-  // 中心の × 印
-  const crossMat = new THREE.MeshBasicMaterial({ color: markCfg.tapeColor, polygonOffset: true, polygonOffsetFactor: -9, polygonOffsetUnits: -9 });
+  // 角の目印（巻き尺で出した点）
+  const dotMat = new THREE.MeshBasicMaterial({ color: 0xff7a00, depthTest: false });
+  const dots = zones.map((z) =>
+    z.corners.map((c) => {
+      const d = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 16), dotMat);
+      d.position.set(c.x, 0.1, c.z);
+      d.renderOrder = 6;
+      d.visible = false;
+      group.add(d);
+      return d;
+    }),
+  );
+  // 中心の×印（巻き尺・紐の基準点）
+  const crossMat = new THREE.MeshBasicMaterial({ color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -9, polygonOffsetUnits: -9 });
   const crossBars = [Math.PI / 4, -Math.PI / 4].map((rot) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.01, markCfg.tapeWidth), crossMat);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.01, 0.1), crossMat);
     m.position.y = y + 0.004;
     m.rotation.y = rot;
     m.renderOrder = 4;
@@ -132,11 +141,11 @@ export function buildSeatMarks() {
     group.add(m);
     return m;
   });
-  // 紐
-  const string = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
-  string.visible = false;
-  string.renderOrder = 5;
-  group.add(string);
+  // 巻き尺（中心から角まで）
+  const line = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
+  line.visible = false;
+  line.renderOrder = 5;
+  group.add(line);
 
   const update = (tape) => {
     const on = markCfg.show;
@@ -144,26 +153,38 @@ export function buildSeatMarks() {
       b.visible = on && tape.centerP > 0.01;
       b.scale.x = Math.max(0.01, tape.centerP);
     });
-    rows.forEach((rw, i) =>
-      rw.arcs.forEach((_, k) => {
-        const m = arcs[i][k];
-        const f = on ? tape.arcs[i][k] : 0;
-        const cnt = Math.floor(f * SEG);
-        m.visible = cnt > 0;
-        if (cnt > 0) m.geometry.setDrawRange(0, cnt * 6);
-      }),
-    );
-    if (on && tape.string) {
-      const dx = tape.string.x;
-      const dz = tape.string.z;
+    zones.forEach((z, zi) => {
+      const prog = tape.zones[zi] || { sides: [0, 0, 0, 0], dots: 0 };
+      z.corners.forEach((c, k) => {
+        dots[zi][k].visible = on && prog.dots > k;
+      });
+      z.corners.forEach((c, k) => {
+        const a = c;
+        const b = z.corners[(k + 1) % z.corners.length];
+        const f = on ? prog.sides[k] : 0;
+        const m = sides[zi][k];
+        m.visible = f > 0.005;
+        if (f > 0.005) {
+          const len = Math.hypot(b.x - a.x, b.z - a.z);
+          const ex = a.x + (b.x - a.x) * f;
+          const ez = a.z + (b.z - a.z) * f;
+          m.scale.x = len * f + markCfg.tapeWidth * 0.5;
+          m.position.set((a.x + ex) / 2, y, (a.z + ez) / 2);
+          m.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
+        }
+      });
+    });
+    if (on && tape.measure) {
+      const dx = tape.measure.x;
+      const dz = tape.measure.z;
       const len = Math.hypot(dx, dz);
-      string.visible = len > 0.05;
-      string.scale.set(0.045, 0.045, len);
-      string.position.set(dx / 2, 0.12, dz / 2);
-      string.rotation.y = Math.atan2(dx, dz);
-    } else string.visible = false;
+      line.visible = len > 0.05;
+      line.scale.set(0.04, 0.04, len);
+      line.position.set(dx / 2, 0.13, dz / 2);
+      line.rotation.y = Math.atan2(dx, dz);
+    } else line.visible = false;
   };
-  return { group, rows, update };
+  return { group, zones, update };
 }
 
 // ---------------------------------------------------------------- 音響（PA）：スピーカーと音響卓（仮）

@@ -1,6 +1,6 @@
 // 椅子300脚（A/B/C各100脚）、席の間隔、通路、床範囲、PA・音響卓との干渉の検証。 `npm run verify:seating`
-import { buildSeating, verifySeating, frontRowOuterChair } from '../src/seating.js';
-import { venue, chairs, performance, pa } from '../src/config.js';
+import { buildSeating, verifySeating, frontRowOuterChair, seatZones } from '../src/seating.js';
+import { venue, chairs, performance, pa, seatMarking } from '../src/config.js';
 
 const list = buildSeating();
 const v = verifySeating(list);
@@ -52,7 +52,34 @@ if (pa.show) {
   }
 }
 
+// テープで囲む範囲（ゾーン）の中に、すべての椅子の四隅が収まるか
+const zones = seatZones(list, chairs, seatMarking.margin);
+const inside = (p, c) => {
+  let s = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = c[i];
+    const b = c[(i + 1) % 4];
+    const cr = (b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x);
+    if (cr < -1e-9) s |= 1;
+    else if (cr > 1e-9) s |= 2;
+  }
+  return s !== 3;
+};
+let cornersOutside = 0;
+for (const z of zones) {
+  for (const ch of list.filter((c) => c.sector === z.sector)) {
+    const fx = Math.sin(ch.rotY);
+    const fz = Math.cos(ch.rotY);
+    for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const p = { x: ch.x + a * (chairs.width / 2) * fz + b * (chairs.depth / 2) * fx, z: ch.z - a * (chairs.width / 2) * fx + b * (chairs.depth / 2) * fz };
+      if (!inside(p, z.corners)) cornersOutside++;
+    }
+  }
+}
+
 const report = {
+  tapeZones: zones.map((z) => ({ sector: z.sector, corners: z.corners.map((c) => [+c.x.toFixed(2), +c.z.toFixed(2)]) })),
+  chairCornersOutsideTape: cornersOutside,
   layout: chairs.layout,
   total: v.total,
   counts: v.counts,
@@ -65,6 +92,7 @@ const report = {
   pa: paItems.map((i) => ({ id: i.id, x: +i.x.toFixed(2), z: +i.z.toFixed(2) })),
   problems: [...v.problems, ...paProblems],
 };
+if (cornersOutside) report.problems.push(`${cornersOutside} chair corners outside tape zone`);
 if (outside.length) report.problems.push(`${outside.length} chairs outside floor`);
 if (tooClose.length) report.problems.push(`${tooClose.length} chairs inside r0`);
 if (v.minPitch < chairs.seatPitchRange[0] - 0.01 || v.maxPitch > chairs.seatPitchRange[1] + 0.01) {
