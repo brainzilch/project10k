@@ -1,9 +1,9 @@
 // エントリ：シーン構築、タイムラインの適用、プレビュー操作、書き出し用 API
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import cfg, { video, storage, exhibits as exhibitCfg, performance, cameras as camCfg } from './config.js';
+import cfg, { video, storage, exhibits as exhibitCfg, performance, cameras as camCfg, pa as paCfg } from './config.js';
 import { buildVenue } from './venue.js';
-import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, makeTextSprite, makeCameraIconSprite } from './props.js';
+import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, buildPA, makeTextSprite, makeCameraIconSprite } from './props.js';
 import { computeState, CAMS } from './timeline.js';
 import { createHud } from './hud.js';
 
@@ -68,6 +68,17 @@ exhibits.forEach((e) => scene.add(e.group));
 const sheets = buildSheets();
 scene.add(sheets.group);
 
+// 音響（PA）：スピーカーと音響卓の仮位置。椅子の設置と同時に出し、設営手順には番号を付けない
+const pa = buildPA();
+scene.add(pa.group);
+const paLabels = pa.items.map((it) => {
+  const sp = makeTextSprite(it.label, { width: 4.6, border: '#93c5fd', fontSize: 78 });
+  sp.position.set(it.x, it.h + 0.6, it.z);
+  sp.visible = false;
+  scene.add(sp);
+  return sp;
+});
+
 // 収納庫ラベル・演奏位置ラベル
 const storageLabel = makeTextSprite(storage.label, { width: 5.5 });
 storageLabel.position.set(storage.door.x, 3.7, storage.door.z + (storage.door.z > 0 ? -0.8 : 0.8));
@@ -99,6 +110,11 @@ function applyState(state, camOverride) {
   bass.visible = state.bassVisible;
   bass.position.set(performance.bass.position.x, 0, performance.bass.position.z);
   bass.rotation.y = performance.bass.rotationDeg * (Math.PI / 180);
+  // 音響（椅子が1脚でもあるあいだ表示。ラベルは完成状態の場面だけ）
+  pa.group.visible = paCfg.show && state.chairs.some((p) => p > 0);
+  const tl = cfg.timeline;
+  const showPaLabels = paCfg.show && (state.t < tl.intro[1] || (state.t >= tl.complete[0] && state.t < tl.complete[1]));
+  paLabels.forEach((sp) => (sp.visible = showPaLabels));
   // ラベル
   const ex0 = state.exhibits[0];
   const exHome = exhibitCfg[0].home;

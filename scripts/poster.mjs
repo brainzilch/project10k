@@ -14,7 +14,7 @@ await page.evaluate(() => {
   document.getElementById('hud-chip').className = 'chip info';
   document.getElementById('hud-step').textContent = '市村記念体育館 コンサート設営・撤去 3Dアニメーション';
   document.getElementById('hud-sub').textContent =
-    '養生シート4帯（1→2→3→4、右→左、余長は折り返し）／パイプ椅子300脚（A・B・C各100脚、通路2本）／ピアノとコントラバス等は演奏位置（赤丸）。寸法・収納庫・経路は仮値。';
+    '養生シート4帯（1→2→3→4、右→左、余長は折り返し）／パイプ椅子300脚（A・B・C各100脚・14列・通路2本、旧案より約2 m後ろ）／ピアノとコントラバス等は演奏位置（赤丸）。スピーカー・音響卓・寸法・収納庫・経路は仮値。';
   document.getElementById('hud-sub').className = 'info';
   document.getElementById('hud-progress').style.display = 'none';
 });

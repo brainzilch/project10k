@@ -1,8 +1,8 @@
 // 小道具：折り畳みパイプ椅子(InstancedMesh)、ピアノ、コントラバス、展示物、養生シートとロール
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { chairs as chairCfg, performance, exhibits as exhibitCfg, sheet as sheetCfg, storage } from './config.js';
-import { buildSeating, verifySeating } from './seating.js';
+import { chairs as chairCfg, performance, exhibits as exhibitCfg, sheet as sheetCfg, storage, pa as paCfg } from './config.js';
+import { buildSeating, verifySeating, frontRowOuterChair } from './seating.js';
 import { stageFrontX } from './venue.js';
 import { venue } from './config.js';
 
@@ -94,6 +94,87 @@ export function buildChairs() {
     padInst.instanceMatrix.needsUpdate = true;
   };
   return { group, layout, update, counts: v.counts, total: v.total };
+}
+
+// ---------------------------------------------------------------- 音響（PA）：スピーカーと音響卓（仮）
+/** スピーカー1か所：Low 1 発（下）＋ Hi/Mid 3 発（上）。型・寸法は未確認の仮モデル。進行方向（客席側）が +z。 */
+function makeSpeakerStack() {
+  const g = new THREE.Group();
+  const body = new THREE.MeshStandardMaterial({ color: 0x1d2025, roughness: 0.7 });
+  const grille = new THREE.MeshStandardMaterial({ color: 0x3b4048, roughness: 0.9 });
+  const add = (w, h, d, y, tilt = 0) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), body);
+    b.position.set(0, y, 0);
+    b.rotation.x = tilt;
+    b.castShadow = true;
+    const f = new THREE.Mesh(new THREE.BoxGeometry(w * 0.86, h * 0.8, 0.03), grille);
+    f.position.set(0, 0, d / 2 + 0.01);
+    b.add(f);
+    g.add(b);
+  };
+  add(0.85, 0.6, 0.8, 0.3); // Low（サブ）1 発
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 8), new THREE.MeshStandardMaterial({ color: 0x8a8f96, metalness: 0.7, roughness: 0.4 }));
+  pole.position.set(0, 0.6 + 0.45, 0);
+  g.add(pole);
+  for (let k = 0; k < paCfg.units.himid; k++) add(0.55, 0.32, 0.45, 1.5 + k * 0.34, (k - 1) * 0.04); // Hi/Mid 3 発（縦に吊る・積む）
+  return g;
+}
+function makeDesk() {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0x6b6f76, roughness: 0.6 });
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.05, 0.85), wood);
+  top.position.y = 0.78;
+  top.castShadow = true;
+  g.add(top);
+  for (const [x, z] of [[-0.78, -0.36], [0.78, -0.36], [-0.78, 0.36], [0.78, 0.36]]) {
+    const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.78, 0.05), wood);
+    l.position.set(x, 0.39, z);
+    g.add(l);
+  }
+  const mixer = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.55), new THREE.MeshStandardMaterial({ color: 0x24282f, roughness: 0.5 }));
+  mixer.position.set(0, 0.88, 0.05);
+  mixer.rotation.x = -0.12;
+  mixer.castShadow = true;
+  g.add(mixer);
+  for (let i = 0; i < 12; i++) {
+    const fd = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, 0.18), new THREE.MeshStandardMaterial({ color: i % 4 === 3 ? 0xf2c14e : 0xd7dbe0 }));
+    fd.position.set(-0.45 + i * 0.082, 0.95, 0.12);
+    fd.rotation.x = -0.12;
+    g.add(fd);
+  }
+  const lap = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.02, 0.24), new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.5 }));
+  lap.position.set(0.62, 0.82, -0.2);
+  g.add(lap);
+  const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.05, 14), wood);
+  stool.position.set(0, 0.55, -0.85);
+  g.add(stool);
+  const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.52, 8), wood);
+  sl.position.set(0, 0.27, -0.85);
+  g.add(sl);
+  return g;
+}
+/** スピーカー2か所と音響卓。位置は config.pa と客席の最前列の外端から決める（仮）。 */
+export function buildPA() {
+  const group = new THREE.Group();
+  group.name = 'pa';
+  const layout = buildSeating();
+  const items = [];
+  for (const sp of paCfg.speakers) {
+    const e = frontRowOuterChair(layout, sp.sector);
+    const a = (e.angleDeg * Math.PI) / 180;
+    const r = chairCfg.r0 - paCfg.speakerFront;
+    const st = makeSpeakerStack();
+    st.position.set(r * Math.cos(a), 0, r * Math.sin(a));
+    st.rotation.y = Math.atan2(Math.cos(a), Math.sin(a)); // 外向き（客席側）
+    group.add(st);
+    items.push({ id: sp.sector, label: sp.label, x: st.position.x, z: st.position.z, h: 2.9 });
+  }
+  const desk = makeDesk();
+  desk.position.set(paCfg.desk.x, 0, paCfg.desk.z);
+  desk.rotation.y = Math.atan2(performance.center.x - paCfg.desk.x, performance.center.z - paCfg.desk.z);
+  group.add(desk);
+  items.push({ id: 'desk', label: paCfg.desk.label, x: paCfg.desk.x, z: paCfg.desk.z, h: 2.2 });
+  return { group, items };
 }
 
 // ---------------------------------------------------------------- ピアノ

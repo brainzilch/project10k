@@ -421,7 +421,7 @@ function hudState(t, ctx) {
     const secDur = (T.s4[1] - T.s4[0]) / 3;
     const s = Math.min(2, Math.floor((t - T.s4[0]) / secDur));
     const names = ['A（図の上側）', 'B（正面）', 'C（図の下側）'];
-    H.sub = `${names[s]} を8列の扇形に配置中。演奏位置を囲み、通路を2本残します。椅子の寸法は参考図の仮定値です。`;
+    H.sub = `${names[s]} を${chairCfg.rowsPerSector.length}列に配置中。扇と長方形の中間の形で、最前列は旧案より約2 m後ろ。通路を2本残します（仮配置）。`;
     if (ctx.chairCount.total >= 300) H.sub = '300脚の設置完了。A・B・C 各100脚、通路2本を確認。';
     H.showCounter = true;
     H.badge = true;
