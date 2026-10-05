@@ -7,3 +7,5 @@ dist/staff/*_silent.mp4
 dist/staff/*.wav
 dist/staff/*.pcm
 dist/staff/spec.png
+dist/*_silent.mp4
+dist/*.wav
