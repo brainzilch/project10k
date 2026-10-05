@@ -74,3 +74,6 @@ body.capture #controls { display: none; }
 .ban .card .lbl { margin-top: 18px; font-size: 76px; font-weight: 900; color: #fff; text-shadow: 0 4px 14px rgba(0,0,0,0.8); }
 .panel2 { min-width: 600px; }
 .panel2 .card { font-size: 32px; }
+
+#hud-steps { min-width: 0; max-width: 720px; text-align: left; }
+#hud-steps .card { font-size: 27px; }

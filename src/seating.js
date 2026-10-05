@@ -112,3 +112,19 @@ export function frontRowOuterChair(list, sector) {
   const row = list.filter((c) => c.sector === sector && c.row === 0);
   return row.reduce((m, c) => (Math.abs(c.angleDeg) > Math.abs(m.angleDeg) ? c : m), row[0]);
 }
+
+/**
+ * 列ごと・セクターごとの円弧（椅子の並ぶ角度範囲）。床のテープの位置を決めるのに使う。
+ * @returns {{row:number, r:number, arcs:{sector:string, lo:number, hi:number, count:number}[]}[]} 角度はラジアン
+ */
+export function seatRowArcs(list, cfg = chairCfg) {
+  return cfg.rowsPerSector.map((_, i) => {
+    const r = cfg.r0 + cfg.rowPitch * i;
+    const half = Math.asin(cfg.seatPitch / (2 * r)); // 端の椅子の外側まで（席の間隔の半分）
+    const arcs = cfg.order.map((s) => {
+      const as = list.filter((c) => c.sector === s && c.row === i).map((c) => (c.angleDeg * Math.PI) / 180);
+      return { sector: s, lo: Math.min(...as) - half, hi: Math.max(...as) + half, count: as.length };
+    });
+    return { row: i, r, arcs };
+  });
+}

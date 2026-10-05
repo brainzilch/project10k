@@ -9,6 +9,7 @@ export function createHud() {
     sub: document.getElementById('hud-sub'),
     counter: document.getElementById('hud-counter'),
     badge: document.getElementById('hud-badge'),
+    steps: document.getElementById('hud-steps'),
     photo: document.getElementById('hud-photo'),
     photoImg: document.getElementById('hud-photo-img'),
     photoNote: document.getElementById('hud-photo-note'),
@@ -50,6 +51,13 @@ export function createHud() {
       el.counter.style.display = 'none';
     }
     el.badge.style.display = H.badge ? 'block' : 'none';
+    if (H.steps) {
+      const P = H.steps;
+      el.steps.style.display = 'block';
+      el.steps.innerHTML =
+        `<div class="ttl">${P.title}</div>` +
+        P.items.map((x, i) => (i < P.showUntil ? `<div class="card ${i === P.active ? 'on' : 'done'}">${x}</div>` : '')).join('');
+    } else el.steps.style.display = 'none';
     el.photo.style.display = H.showPhoto ? 'block' : 'none';
     el.photoNote.textContent = H.photoNote || '';
     el.flash.style.opacity = state.photo.flash ? String(state.photo.flash * 0.9) : '0';

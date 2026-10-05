@@ -5,6 +5,7 @@ import {
   transportPath,
   sheet as sheetCfg,
   chairs as chairCfg,
+  seatMarking,
   performance,
   exhibits as exhibitCfg,
   exhibitStorageOffsets,
@@ -13,6 +14,8 @@ import {
   venue,
   video,
 } from './config.js';
+
+import { buildSeating, seatRowArcs } from './seating.js';
 
 const DEG = Math.PI / 180;
 export const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -70,6 +73,8 @@ export const CAMS = {
   top: { pos: [9.5, 72, 4.5], target: [9.5, 0, 4.5], up: [0, 0, -1] },
   foldClose: { pos: [-0.5, 4.8, 24], target: [-4.6, 0.2, 13.5] },
   foldClose2: { pos: [-1.5, 4.4, 22.5], target: [-4.9, 0.2, 13.5] },
+  tapeObl: { pos: [14.5, 10.5, 12.5], target: [4.6, 0.4, -0.2] },
+  tapeTop: { pos: [10.5, 41, 0.5], target: [10.5, 0, 0.5], up: [0, 0, -1] },
   chairs: { pos: [27, 13, 25], target: [4, 0, -1] },
   chairs2: { pos: [24, 12, 22], target: [4, 0, -1] },
   piano: { pos: [16, 9, 15], target: [1, 0.6, -5] },
@@ -91,11 +96,16 @@ function cameraSchedule() {
   add([T.s3[0], fold1Start], 'top');
   add([fold1Start, fold1End], 'foldClose', 'foldClose2');
   add([fold1End, T.s3[1]], 'top');
-  add(T.s4, 'chairs', 'chairs2');
+  const tp = seatMarking.timing;
+  const tSlow1 = T.s4tape[0] + tp.center + tp.slowRow;
+  add([T.s4tape[0], tSlow1 - 0.3], 'tapeObl', 'tapeObl');
+  add([tSlow1 - 0.3, T.s4tape[1]], 'tapeTop');
+  add(T.s4chairs, 'chairs', 'chairs2');
   add(T.s5, 'piano', 'piano2');
   add(T.complete, 'complete', 'complete2');
   add(T.t1, 'piano2', 'piano');
-  add(T.t2, 'chairs2', 'chairs');
+  add(T.t2chairs, 'chairs2', 'chairs');
+  add(T.t2tape, 'tapeTop');
   add(T.t3, 'top');
   add(T.t4, 'exhibit', 'exhibit2');
   add([T.t5[0], T.t5[1] + 1], 'storage', 'storage2');
@@ -318,29 +328,119 @@ function exhibitState(t, j) {
 function chairProgress(t, n) {
   const p = new Float32Array(n);
   const per = 100;
-  const secDur = (T.s4[1] - T.s4[0]) / chairCfg.order.length;
-  if (inRange(t, T.intro) || (t >= T.s4[1] && t < T.t2[0])) {
+  const win = T.s4chairs; // 椅子を並べる時間帯（前半は床にテープで目印をつくる）
+  const secDur = (win[1] - win[0]) / chairCfg.order.length;
+  if (inRange(t, T.intro) || (t >= win[1] && t < T.t2[0])) {
     p.fill(1);
     return p;
   }
-  if (inRange(t, T.s4)) {
+  if (inRange(t, win)) {
     for (let i = 0; i < n; i++) {
       const s = Math.floor(i / per);
       const k = i % per;
-      const start = T.s4[0] + s * secDur + (k / per) * (secDur - chairCfg.appearDuration - 0.25);
+      const start = win[0] + s * secDur + (k / per) * (secDur - chairCfg.appearDuration - 0.25);
       p[i] = clamp01((t - start) / chairCfg.appearDuration);
     }
     return p;
   }
   if (inRange(t, T.t2)) {
-    const dur = T.t2[1] - T.t2[0];
+    const w = T.t2chairs;
+    const dur = w[1] - w[0];
     for (let i = 0; i < n; i++) {
-      const rem = T.t2[0] + ((n - 1 - i) / (n - 1)) * (dur - 0.4);
+      const rem = w[0] + ((n - 1 - i) / (n - 1)) * (dur - 0.4);
       p[i] = 1 - clamp01((t - rem) / 0.3);
     }
     return p;
   }
   return p;
+}
+
+// ---------------------------------------------------------------- 床のテープ（椅子を並べる位置の目印）
+const SEAT_ROWS = seatRowArcs(buildSeating());
+export { SEAT_ROWS };
+/**
+ * テープの状態。center: 中心の×印の進み(0..1)。arcs[行][ブロック]: 円弧の進み(0..1)。
+ * workers: 作業者2人の姿勢。string: 紐の先（作業者2の位置）。labels: ラベルの表示。
+ */
+function tapeState(t) {
+  const N = SEAT_ROWS.length;
+  const st = { centerP: 0, arcs: SEAT_ROWS.map((r) => r.arcs.map(() => 0)), workers: [{ vis: false }, { vis: false }], string: null, labels: {} };
+  const full = () => {
+    st.centerP = 1;
+    st.arcs = SEAT_ROWS.map((r) => r.arcs.map(() => 1));
+  };
+  const tp = seatMarking.timing;
+  const a0 = T.s4tape[0];
+  const tC1 = a0 + tp.center;
+  const tS1 = tC1 + tp.slowRow;
+  const tF1 = tS1 + tp.fastRows;
+  if (!seatMarking.show) return st;
+  if (inRange(t, T.intro)) {
+    full();
+    return st;
+  }
+  if (t >= T.t2tape[1]) return st;
+  if (inRange(t, T.t2tape)) {
+    // テープをはがす：後ろの列から順に。最後に中心の×印
+    const pp = (t - T.t2tape[0]) / (T.t2tape[1] - T.t2tape[0]);
+    st.centerP = 1 - clamp01((pp - 0.85) / 0.15);
+    st.arcs = SEAT_ROWS.map((r, i) => {
+      const f = 1 - clamp01((pp / 0.85) * N - (N - 1 - i));
+      return r.arcs.map(() => f);
+    });
+    st.labels = { peel: true };
+    st.hidePerf = true;
+    return st;
+  }
+  if (t < a0) return st;
+  if (t >= T.s4tape[1]) {
+    full();
+    st.labels = { align: t < T.s4chairs[0] + 4.5 };
+    st.hidePerf = t < T.s4chairs[0] + 4.5;
+    return st;
+  }
+  // ---- 設営：テープを貼る ----
+  st.centerP = clamp01((t - a0) / tp.center);
+  const row0 = SEAT_ROWS[0];
+  const th0 = Math.min(...row0.arcs.map((a) => a.lo));
+  const th1 = Math.max(...row0.arcs.map((a) => a.hi));
+  const R = (i) => SEAT_ROWS[i].r - seatMarking.frontOffset;
+  let head = null;
+  if (t >= tC1) {
+    const u0 = clamp01((t - tC1) / tp.slowRow);
+    const thh = lerp(th0, th1, u0);
+    st.arcs[0] = row0.arcs.map((a) => clamp01((thh - a.lo) / (a.hi - a.lo)));
+    head = { x: R(0) * Math.cos(thh), z: R(0) * Math.sin(thh), th: thh, row: 0, moving: u0 > 0 && u0 < 1, slow: true };
+    if (t >= tS1) {
+      const q = clamp01((t - tS1) / tp.fastRows) * (N - 1);
+      for (let i = 1; i < N; i++) st.arcs[i] = SEAT_ROWS[i].arcs.map(() => clamp01(q - (i - 1)));
+      const cur = Math.min(N - 1, Math.max(1, Math.floor(q) + 1));
+      for (let i = 0; i < N; i++) if (i < cur) st.arcs[i] = st.arcs[i].map(() => 1);
+      head = { x: R(cur), z: 0.4 * Math.sin(t * 9), th: 0, row: cur, moving: t < tF1, slow: false };
+      if (t >= tF1) st.arcs = SEAT_ROWS.map((r) => r.arcs.map(() => 1));
+    }
+  }
+  const workEnd = tF1 + 0.5;
+  if (t < workEnd) {
+    st.workers[0] = { vis: true, x: 0.55, z: -0.2, yaw: head ? Math.atan2(head.x - 0.55, head.z + 0.2) : Math.PI / 2, moving: false, phase: 0 };
+    const start = { x: R(0) * Math.cos(th0), z: R(0) * Math.sin(th0) };
+    if (head && t < tF1) {
+      const tangent = head.slow ? Math.atan2(-Math.sin(head.th), Math.cos(head.th)) : Math.PI / 2;
+      st.workers[1] = { vis: true, x: head.x, z: head.z, yaw: tangent, moving: head.moving, phase: t * (head.slow ? 5 : 11) };
+      st.string = { x: head.x, z: head.z };
+    } else if (t >= tC1 - 0.8) {
+      st.workers[1] = { vis: true, x: start.x, z: start.z, yaw: Math.atan2(-Math.sin(th0), Math.cos(th0)), moving: false, phase: 0 };
+    }
+  }
+  st.hidePerf = true;
+  st.labels = {
+    center: t < tC1 + 2.2,
+    string: t >= tC1 + 0.4 && t < tS1 - 0.8,
+    row1: t >= tS1 - 1.8 && t < tS1 + 0.4,
+    row14: t >= tF1 - 0.5,
+    aisle: t >= tF1 - 0.2,
+  };
+  return st;
 }
 
 function pianoState(t) {
@@ -417,13 +517,38 @@ function hudState(t, ctx) {
   } else if (inRange(t, T.s4)) {
     H.chip = '設営 4／5';
     H.chipClass = 'setup';
-    H.step = '④ パイプ椅子300脚を設置（A・B・C 各100脚）';
-    const secDur = (T.s4[1] - T.s4[0]) / 3;
-    const s = Math.min(2, Math.floor((t - T.s4[0]) / secDur));
-    const names = ['A（図の上側）', 'B（正面）', 'C（図の下側）'];
-    H.sub = `${names[s]} を${chairCfg.rowsPerSector.length}列に配置中。扇と長方形の中間の形で、最前列は旧案より約2 m後ろ。通路を2本残します（仮配置）。`;
-    if (ctx.chairCount.total >= 300) H.sub = '300脚の設置完了。A・B・C 各100脚、通路2本を確認。';
-    H.showCounter = true;
+    const tp = seatMarking.timing;
+    const tC1 = T.s4tape[0] + tp.center;
+    const tS1 = tC1 + tp.slowRow;
+    const tF1 = tS1 + tp.fastRows;
+    const rows = chairCfg.rowsPerSector.length;
+    const steps = ['中心に × 印（基準点）', '紐を中心に留め、列ごとの半径で円弧にテープ', 'テープの切れ目が通路（幅1.4 m）', '椅子は前脚をテープにそろえて並べる'];
+    const mk = (a) => ({ title: '客席の並べ方（案）', items: steps.map((x, i2) => `${i2 + 1}  ${x}`), active: a, showUntil: a + 1 });
+    if (inRange(t, T.s4tape)) {
+      H.step = '④-1 床にテープで、椅子を並べる位置の目印をつくる';
+      if (t < tC1) {
+        H.sub = '演奏位置の中心に × 印のテープを貼ります。ここが全部の列の基準点です（テープは養生シートの上に貼る想定）。';
+        H.steps = mk(0);
+      } else if (t < tS1) {
+        H.sub = `紐（または巻き尺）の端を中心に留め、1列目の半径 ${chairCfg.r0} m でテープを円弧にそってなぞります。`;
+        H.steps = mk(1);
+      } else if (t < tF1) {
+        H.sub = `2列目以降は 0.9 m ずつ半径を増やして、同じように貼ります（早送り・全${rows}列）。`;
+        H.steps = mk(1);
+      } else {
+        H.sub = 'テープの切れ目がそのまま通路になります（有効幅 1.4 m）。椅子は前脚をテープにそろえて置くだけで、列が曲がりません。';
+        H.steps = mk(2);
+      }
+    } else {
+      H.step = '④-2 パイプ椅子300脚を設置（A・B・C 各100脚）';
+      const secDur = (T.s4chairs[1] - T.s4chairs[0]) / 3;
+      const s = Math.min(2, Math.floor((t - T.s4chairs[0]) / secDur));
+      const names = ['A（図の上側）', 'B（正面）', 'C（図の下側）'];
+      H.sub = `${names[s]} を${rows}列に、テープに前脚をそろえて配置中。通路を2本残します（仮配置）。`;
+      if (ctx.chairCount.total >= 300) H.sub = '300脚の設置完了。A・B・C 各100脚、通路2本を確認。';
+      H.steps = mk(3);
+      H.showCounter = true;
+    }
     H.badge = true;
   } else if (inRange(t, T.s5)) {
     H.chip = '設営 5／5';
@@ -448,8 +573,8 @@ function hudState(t, ctx) {
   } else if (inRange(t, T.t2)) {
     H.chip = '撤去 2／5';
     H.chipClass = 'teardown';
-    H.step = '② 椅子300脚を撤去';
-    H.sub = '全300脚を回収して客席を空にします。';
+    H.step = '② 椅子300脚を撤去し、床のテープをはがす';
+    H.sub = t < T.t2chairs[1] ? '全300脚を回収して客席を空にします。' : '続けて、床に貼った目印のテープをはがします（後ろの列から、最後に中心の × 印）。';
     H.showCounter = true;
     H.badge = true;
   } else if (inRange(t, T.t3)) {
@@ -504,7 +629,8 @@ export function computeState(t, ctx) {
     photo.flash = f >= 0 && f < 0.35 ? 1 - f / 0.35 : 0;
   }
   const hud = hudState(t, { chairCount });
-  return { t, sheets, exhibits, chairs, chairCount, piano, bassVisible, camera, photo, hud };
+  const tape = tapeState(t);
+  return { t, sheets, exhibits, chairs, chairCount, piano, bassVisible, camera, photo, hud, tape };
 }
 
 export { T as timelineConfig };

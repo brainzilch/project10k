@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import cfg, { video, storage, exhibits as exhibitCfg, performance, cameras as camCfg, pa as paCfg } from './config.js';
 import { buildVenue } from './venue.js';
-import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, buildPA, makeTextSprite, makeCameraIconSprite } from './props.js';
+import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, buildPA, buildSeatMarks, makeTextSprite, makeFitSprite, makeCameraIconSprite } from './props.js';
+import { makePerson, setPose } from './staff/people.js';
 import { computeState, CAMS } from './timeline.js';
 import { createHud } from './hud.js';
 
@@ -68,6 +69,47 @@ exhibits.forEach((e) => scene.add(e.group));
 const sheets = buildSheets();
 scene.add(sheets.group);
 
+// 椅子を並べる位置の目印（床の養生テープ）と作業者
+const marks = buildSeatMarks();
+scene.add(marks.group);
+const workers = [makePerson({ staff: true }), makePerson({ staff: true })];
+workers.forEach((w) => {
+  w.visible = false;
+  scene.add(w);
+});
+const SR = marks.rows;
+const lerpAngle2 = (a, b, k) => a + (b - a) * k;
+const markLabelDefs = {
+  center: { text: '基準点：演奏位置の中心に × 印', pos: [0, 2.4, 0], fs: 36 },
+  string: { text: '紐（または巻き尺）の端を中心に留める', pos: [3.4, 0.9, 2.4], fs: 34 },
+  row1: { text: `1列目：半径 ${cfg.chairs.r0} m（各ブロック${cfg.chairs.rowsPerSector[0]}脚）`, pos: [cfg.chairs.r0 + 3.4, 1.2, -2.6], fs: 34 },
+  row14: {
+    text: `${cfg.chairs.rowsPerSector.length}列目：半径 ${SR[SR.length - 1].r.toFixed(2)} m（各ブロック${cfg.chairs.rowsPerSector[cfg.chairs.rowsPerSector.length - 1]}脚）`,
+    pos: [SR[SR.length - 1].r + 3.0, 1.2, 3.6],
+    fs: 34,
+  },
+  aisle: {
+    text: 'テープの切れ目＝通路（有効幅 1.4 m）',
+    pos: (() => {
+      const rw = SR[Math.floor(SR.length / 2)];
+      const th = (rw.arcs[0].hi + rw.arcs[1].lo) / 2; // A と B のあいだの通路
+      return [(rw.r - 0.2) * Math.cos(th) + 3.2, 1.2, (rw.r - 0.2) * Math.sin(th) - 0.6];
+    })(),
+    fs: 34,
+  },
+  align: { text: 'テープに前脚をそろえて並べる', pos: [cfg.chairs.r0 + 0.9, 2.1, 0], fs: 36 },
+  peel: { text: 'テープをはがす（後ろの列から）', pos: [cfg.chairs.r0 + 6, 2.1, 0], fs: 36 },
+};
+const markLabels = {};
+for (const [k, d] of Object.entries(markLabelDefs)) {
+  const sp = makeFitSprite(d.text, { border: '#ffffff' });
+  sp.position.set(...d.pos);
+  sp.userData.screenFont = d.fs;
+  sp.visible = false;
+  scene.add(sp);
+  markLabels[k] = sp;
+}
+
 // 音響（PA）：スピーカーと音響卓の仮位置。椅子の設置と同時に出し、設営手順には番号を付けない
 const pa = buildPA();
 scene.add(pa.group);
@@ -115,13 +157,18 @@ function applyState(state, camOverride) {
   const tl = cfg.timeline;
   const showPaLabels = paCfg.show && (state.t < tl.intro[1] || (state.t >= tl.complete[0] && state.t < tl.complete[1]));
   paLabels.forEach((sp) => (sp.visible = showPaLabels));
+  // 床のテープ・作業者・ラベル
+  marks.update(state.tape);
+  setPose(workers[0], state.tape.workers[0]);
+  setPose(workers[1], state.tape.workers[1]);
+  for (const k of Object.keys(markLabels)) markLabels[k].visible = !!state.tape.labels[k];
   // ラベル
   const ex0 = state.exhibits[0];
   const exHome = exhibitCfg[0].home;
   const exAtHome = Math.hypot(ex0.x - exHome.x, ex0.z - exHome.z) < 0.05;
   exhibitLabel.visible = exAtHome;
   exhibitLabel.position.set(exHome.x, 3.2, exHome.z);
-  perfLabel.visible = !state.hud.showPhoto;
+  perfLabel.visible = !state.hud.showPhoto && !state.tape.hidePerf;
   camIcon.visible = state.photo.iconVisible;
   camIcon.position.set(exHome.x + 3.5, 2.6 + Math.sin(state.t * 4) * 0.1, exHome.z + 3.5);
 
@@ -140,13 +187,21 @@ function applyState(state, camOverride) {
   const highView = c.pos[1] > 15;
   perfLabel.visible = perfLabel.visible && highView;
   exhibitLabel.visible = exhibitLabel.visible && highView;
-  storageLabel.visible = c.pos[1] > 8 && c.pos[1] < 15;
+  storageLabel.visible = c.pos[1] > 8 && c.pos[1] < 15 && !state.tape.hidePerf;
   // 帯番号のスプライトはカメラが近いときに小さくする
   const camPos = new THREE.Vector3(c.pos[0], c.pos[1], c.pos[2]);
   for (const b of sheets.bands) {
     const d = b.label.position.distanceTo(camPos);
     const sc = 2.2 * Math.max(0.35, Math.min(1, d / 30));
     b.label.scale.set(sc, sc, 1);
+  }
+  // テープのラベルは、画面上の文字サイズをそろえる
+  const halfTan = Math.tan((camera.fov * Math.PI) / 360);
+  for (const sp of Object.values(markLabels)) {
+    if (!sp.visible) continue;
+    const hPx = (sp.userData.screenFont * (sp.userData.canvasH || 256)) / (sp.userData.fontPx || 96);
+    const h = (hPx / 1080) * 2 * camPos.distanceTo(sp.position) * halfTan;
+    sp.scale.set((sp.userData.aspect || 4) * h, h, 1);
   }
   hud.update(state);
 }

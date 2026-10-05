@@ -3,13 +3,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { openApp } from './lib/browser.mjs';
-import { timeline as T, sheetTiming, sheet as sheetCfg } from '../src/config.js';
+import { timeline as T, sheetTiming, sheet as sheetCfg, seatMarking } from '../src/config.js';
 
 const outDir = path.resolve('dist/checks');
 fs.mkdirSync(outDir, { recursive: true });
 
 const bandDur = (T.s3[1] - T.s3[0]) / sheetCfg.bands.length;
-const secDur = (T.s4[1] - T.s4[0]) / 3;
+const secDur = (T.s4chairs[1] - T.s4chairs[0]) / 3;
+const tp = seatMarking.timing;
+const tC1 = T.s4tape[0] + tp.center;
+const tS1 = tC1 + tp.slowRow;
 const frames = [
   { name: '00_t0_intro', t: 0 },
   { name: '01_sheets_out', t: T.s1[0] + 3.2 },
@@ -19,12 +22,17 @@ const frames = [
   { name: '03b_band1_fold_close', t: T.s3[0] + bandDur * (sheetTiming.unrollFrac + sheetTiming.foldFrac * 0.5) },
   { name: '03c_band3_unroll_top', t: T.s3[0] + bandDur * 2.4 },
   { name: '03d_all_folded_top', t: T.s3[1] - 0.2 },
-  { name: '04_chairs_150', t: T.s4[0] + secDur * 1.5 },
-  { name: '04b_chairs_300', t: T.s4[1] - 0.1 },
+  { name: '03e_tape_center', t: T.s4tape[0] + 1.0 },
+  { name: '03f_tape_row1', t: tC1 + tp.slowRow * 0.55 },
+  { name: '03g_tape_fast', t: tS1 + tp.fastRows * 0.5 },
+  { name: '03h_tape_done_top', t: T.s4tape[1] - 0.2 },
+  { name: '04_chairs_150', t: T.s4chairs[0] + secDur * 1.5 },
+  { name: '04b_chairs_300', t: T.s4chairs[1] - 0.1 },
   { name: '05_piano_move', t: T.s5[0] + 4.0 },
   { name: '06_complete', t: T.complete[0] + 2 },
   { name: '07_td_piano', t: T.t1[0] + 1.5 },
-  { name: '08_td_chairs', t: T.t2[0] + 1.5 },
+  { name: '08_td_chairs', t: T.t2chairs[0] + 1.5 },
+  { name: '08b_td_tape_peel', t: T.t2tape[0] + 1.5 },
   { name: '09_td_sheets_top', t: T.t3[0] + 1.6 },
   { name: '10_td_exhibits_restore', t: T.t4[1] - 0.3 },
   { name: '11_after_teardown', t: T.t5[1] - 0.05 },

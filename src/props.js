@@ -1,8 +1,8 @@
 // 小道具：折り畳みパイプ椅子(InstancedMesh)、ピアノ、コントラバス、展示物、養生シートとロール
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { chairs as chairCfg, performance, exhibits as exhibitCfg, sheet as sheetCfg, storage, pa as paCfg } from './config.js';
-import { buildSeating, verifySeating, frontRowOuterChair } from './seating.js';
+import { chairs as chairCfg, performance, exhibits as exhibitCfg, sheet as sheetCfg, storage, pa as paCfg, seatMarking as markCfg } from './config.js';
+import { buildSeating, verifySeating, frontRowOuterChair, seatRowArcs } from './seating.js';
 import { stageFrontX } from './venue.js';
 import { venue } from './config.js';
 
@@ -94,6 +94,76 @@ export function buildChairs() {
     padInst.instanceMatrix.needsUpdate = true;
   };
   return { group, layout, update, counts: v.counts, total: v.total };
+}
+
+// ---------------------------------------------------------------- 椅子を並べる位置の目印（養生テープ）
+/**
+ * 演奏位置の中心の × 印、列ごとの円弧のテープ、中心から作業者へ張る紐。
+ * tape: timeline.js の tapeState()。arcs の進み具合に合わせて円弧を伸ばす。
+ */
+export function buildSeatMarks() {
+  const rows = seatRowArcs(buildSeating());
+  const group = new THREE.Group();
+  group.name = 'seatMarks';
+  const mat = new THREE.MeshBasicMaterial({ color: markCfg.tapeColor, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+  const SEG = 72;
+  const y = 0.075;
+  const arcs = rows.map((rw) =>
+    rw.arcs.map((a) => {
+      const R = rw.r - markCfg.frontOffset;
+      const geo = new THREE.RingGeometry(R - markCfg.tapeWidth / 2, R + markCfg.tapeWidth / 2, SEG, 1, a.lo, a.hi - a.lo);
+      const m = new THREE.Mesh(geo, mat);
+      m.rotation.x = Math.PI / 2; // 円弧の角度が +x から +z へ向かうように床に寝かせる
+      m.position.y = y;
+      m.renderOrder = 3;
+      m.visible = false;
+      group.add(m);
+      return m;
+    }),
+  );
+  // 中心の × 印
+  const crossMat = new THREE.MeshBasicMaterial({ color: markCfg.tapeColor, polygonOffset: true, polygonOffsetFactor: -9, polygonOffsetUnits: -9 });
+  const crossBars = [Math.PI / 4, -Math.PI / 4].map((rot) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.01, markCfg.tapeWidth), crossMat);
+    m.position.y = y + 0.004;
+    m.rotation.y = rot;
+    m.renderOrder = 4;
+    m.visible = false;
+    group.add(m);
+    return m;
+  });
+  // 紐
+  const string = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
+  string.visible = false;
+  string.renderOrder = 5;
+  group.add(string);
+
+  const update = (tape) => {
+    const on = markCfg.show;
+    crossBars.forEach((b) => {
+      b.visible = on && tape.centerP > 0.01;
+      b.scale.x = Math.max(0.01, tape.centerP);
+    });
+    rows.forEach((rw, i) =>
+      rw.arcs.forEach((_, k) => {
+        const m = arcs[i][k];
+        const f = on ? tape.arcs[i][k] : 0;
+        const cnt = Math.floor(f * SEG);
+        m.visible = cnt > 0;
+        if (cnt > 0) m.geometry.setDrawRange(0, cnt * 6);
+      }),
+    );
+    if (on && tape.string) {
+      const dx = tape.string.x;
+      const dz = tape.string.z;
+      const len = Math.hypot(dx, dz);
+      string.visible = len > 0.05;
+      string.scale.set(0.045, 0.045, len);
+      string.position.set(dx / 2, 0.12, dz / 2);
+      string.rotation.y = Math.atan2(dx, dz);
+    } else string.visible = false;
+  };
+  return { group, rows, update };
 }
 
 // ---------------------------------------------------------------- 音響（PA）：スピーカーと音響卓（仮）
