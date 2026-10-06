@@ -261,7 +261,7 @@ npm run render:staff   # 音声の合成 → 映像の描画 → MP4 に合成�
 npm run verify:staff   # ffprobe で 1920×1080・30fps・h264・aac・約123秒を確認
 ```
 
-出力は `dist/staff/ichimura_staff_notice_3d.mp4`（原本、約46 MB）と `_web.mp4`（軽量版、約16 MB）です。検証結果: 1920×1080・30 fps・h264、音声 aac ステレオ 48 kHz、3120 フレーム・104 秒、音量 約 -15 LUFS（ピーク -1.3 dBFS）。
+出力は `dist/staff/ichimura_staff_notice_3d.mp4`（原本、約46 MB）と `_web.mp4`（軽量版、約16 MB）です。検証結果: 1920×1080・30 fps・h264、音声 aac ステレオ 48 kHz、3702 フレーム・123.4 秒、音量 約 -15 LUFS（ピーク -1.1 dBFS）。軽量版は約20 MB。
 
 ## 設定と仮の値（`src/staff/staffConfig.js`）
 
