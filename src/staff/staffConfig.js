@@ -7,8 +7,13 @@
 //  「// 仮」は未確認の値、「// 回答済み」は依頼者の回答を反映した値です。
 // =====================================================================
 
+// 公演中に足した場面の長さ（秒）：大声で話す方への注意（演出つき）／暗い会場での足元の声かけ
+const LOUD = 11;
+const DARK = 8.4;
+const X = LOUD + DARK;
+
 export const staffVideo = {
-  duration: 104, // 秒。長さの目安は仮（当初案は約90秒。会場内のルール・撮影録音禁止を足して約104秒）
+  duration: 104 + X, // 秒。長さの目安は仮（会場内のルール・撮影録音禁止・大声への注意・足元の声かけを足して約123秒）
 };
 
 // 方位：平面図の方位記号は右（玄関側）が北。よって +x = 北、+z = 東（駐車場は会場の東）。   // 仮（読み取り）
@@ -89,8 +94,8 @@ export const T = {
   reception: [6, 30],
   open: [30, 42],
   parking: [42, 58],
-  quiet: [58, 96],
-  outro: [96, 104],
+  quiet: [58, 96 + X],
+  outro: [96 + X, 104 + X],
 };
 // 受付の小区間
 export const receptionParts = {
@@ -110,14 +115,19 @@ export const quietParts = {
   steps: [58, 62.4], // 足音・ドアの音が響く（ホワイエも含めて見せる）
   talk: [62.4, 71.2], // ホワイエ・玄関：スタッフ同士の会話は必要最低限（×とブザー）
   hall: [71.2, 79.2], // 会場内でも：会話しない・足音を立てない（×とブザー）
-  rec: [79.2, 85.2], // 撮影（写真・動画）・録音は禁止
-  late: [85.2, 91.4], // 途中入場：暗幕を1枚垂らして、光を遮る
-  stations: [91.4, 96], // 公演中の配置
+  loud: [79.2, 79.2 + LOUD], // 会場内で大声で話す方がいたら注意する（演出：殴って転げ落とす）
+  rec: [79.2 + LOUD, 85.2 + LOUD], // 撮影（写真・動画）・録音は禁止
+  late: [85.2 + LOUD, 91.4 + LOUD], // 途中入場：暗幕を1枚垂らして、光を遮る
+  dark: [91.4 + LOUD, 91.4 + X], // 会場内は暗い：入場する方にスタッフから「足元にご注意ください」
+  stations: [91.4 + X, 96 + X], // 公演中の配置
 };
 // 会場内の例（壁際のスタッフが足音を立てて歩く → 会話する）
 export const hall = { walk: [71.4, 73.8], crossStep: [73.8, 75.6], chat: [75.8, 77.6], crossTalk: [77.6, 79.2], back: [79.4, 82.4] };
+// 大声で話す方への注意（演出）：L0 から、客は大声で話す → スタッフが歩いてくる → 殴る → 客が椅子から転げ落ちる
+const L0 = 79.2;
+export const loud = { chat: [L0 + 0.4, 85.9], approach: [83.0, 85.2], windup: [85.2, 85.8], hit: 85.9, fall: [85.9, 86.9], stars: [87.0, 89.8], note: [87.0, 79.2 + LOUD], back: [89.6, 92.6] };
 // 撮影・録音の禁止カードを出す時刻
-export const ban = { photoVideo: 79.6, rec: 82.0, end: 85.2 };
+export const ban = { photoVideo: 79.6 + LOUD, rec: 82.0 + LOUD, end: 85.2 + LOUD };
 // 受け取り窓口：お一人ずつの対応が終わる時刻（V1〜V6）と、係が手を上げてチケットを渡す時間帯
 export const pickup = {
   serve: [19.4, 21.0, 23.0, 24.6, 26.0, 27.2],
@@ -128,7 +138,10 @@ export const entry = { openAt: [33.0, 34.0], checks: [35.2, 36.8, 38.4, 39.9, 41
 // 私語の例
 export const talk = { walk: [59.0, 62.0], chat: [62.6, 65.8], cross: [66.0, 68.9], back: [68.9, 71.0] };
 // 途中入場（暗幕）
-export const late = { arrive: 82.4, doorOpen: [85.6, 86.4], curtainDrop: [87.4, 88.1], pass: [88.6, 90.6], doorClose: [90.8, 92.2], end: 91.2 };
+export const late = { arrive: 82.4 + LOUD, doorOpen: [85.6 + LOUD, 86.4 + LOUD], curtainDrop: [87.4 + LOUD, 88.1 + LOUD], pass: [88.6 + LOUD, 90.6 + LOUD], doorClose: [90.8 + LOUD, 91.5 + LOUD], end: 91.2 + LOUD };
+// 暗い会場への入場：D0 から、スタッフがドアを開け「足元にご注意ください」と小声で声をかけ、2人が暗い会場へ入る
+const D0 = 91.4 + LOUD;
+export const dark = { t0: D0, arrive: D0 - 3.4, doorOpen: [D0 + 0.5, D0 + 1.3], say: [D0 + 1.7, D0 + 5.6], pass: [D0 + 2.0, D0 + 6.2], doorClose: [D0 + 6.0, D0 + 7.2], end: D0 + DARK };
 
 // ---- 効果音・音楽のきっかけ（秒）-----------------------------------------
 export const cues = [
@@ -171,24 +184,39 @@ export const cues = [
   { t: 73.8, type: 'buzz' },
   { t: 75.9, type: 'murmur', dur: 1.7 },
   { t: 77.6, type: 'buzz' },
+  // 会場内で大声で話す方への注意（演出）
+  { t: 79.9, type: 'loudTalk', dur: 5.8 },
+  { t: 83.0, type: 'steps', dur: 2.2, tail: 1.6, gain: 0.5 },
+  { t: 85.62, type: 'whoosh' },
+  { t: 85.9, type: 'punch' }, // 殴る音
+  { t: 86.05, type: 'tumble' }, // 椅子から転げ落ちる音
+  { t: 86.95, type: 'dizzy' },
+  { t: 87.3, type: 'buzz' },
   // 撮影（写真・動画）・録音はNG
-  { t: 79.7, type: 'buzz' },
-  { t: 82.1, type: 'buzz' },
+  { t: ban.photoVideo + 0.1, type: 'buzz' },
+  { t: ban.rec + 0.1, type: 'buzz' },
   // 途中入場（暗幕）
-  { t: 85.6, type: 'doorSoft' },
-  { t: 87.4, type: 'cloth' },
-  { t: 88.6, type: 'steps', dur: 1.9, tail: 0.4, gain: 0.4 },
-  { t: 90.9, type: 'doorSoft' },
-  { t: 91.2, type: 'applause', dur: 3.2 },
+  { t: late.doorOpen[0], type: 'doorSoft' },
+  { t: late.curtainDrop[0], type: 'cloth' },
+  { t: late.pass[0], type: 'steps', dur: 1.9, tail: 0.4, gain: 0.4 },
+  { t: late.doorClose[0] + 0.1, type: 'doorSoft' },
+  // 暗い会場：足元にご注意ください
+  { t: dark.arrive + 0.5, type: 'steps', dur: 3.4, tail: 0.3, gain: 0.5 },
+  { t: dark.doorOpen[0], type: 'doorSoft' },
+  { t: dark.say[0], type: 'pop' },
+  { t: dark.say[0] + 0.2, type: 'ding', note: 1 },
+  { t: dark.pass[0] + 0.5, type: 'steps', dur: 4.2, tail: 1.2, gain: 0.35 },
+  { t: dark.doorClose[0], type: 'doorSoft' },
+  { t: dark.end - 0.4, type: 'applause', dur: 3.2 },
   // まとめ
-  { t: 94.0, type: 'whoosh' },
-  { t: 97.0, type: 'ding', note: 0 },
-  { t: 99.0, type: 'ding', note: 1 },
-  { t: 101.0, type: 'ding', note: 2 },
-  { t: 103.0, type: 'chime' },
+  { t: 94.0 + X, type: 'whoosh' },
+  { t: 97.0 + X, type: 'ding', note: 0 },
+  { t: 99.0 + X, type: 'ding', note: 1 },
+  { t: 101.0 + X, type: 'ding', note: 2 },
+  { t: 103.0 + X, type: 'chime' },
 ];
 
 // 生演奏（公演中）の区間。この間は BGM を下げて、生音に近い小さめのピアノだけにする
-export const livePiano = { from: 58.0, to: 91.2 };
+export const livePiano = { from: 58.0, to: dark.end };
 
-export default { staffVideo, rules, layout, parking, stations, T, receptionParts, receptionSteps, quietParts, hall, ban, pickup, entry, talk, late, cues, livePiano };
+export default { loud, dark, staffVideo, rules, layout, parking, stations, T, receptionParts, receptionSteps, quietParts, hall, ban, pickup, entry, talk, late, cues, livePiano };

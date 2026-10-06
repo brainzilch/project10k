@@ -58,6 +58,7 @@ export function makePerson({ staff = false, color = 0x3b6ea8, scale = 0.92 } = {
   const armL = mkLimb(shared.arm, armMat, -0.27, 1.42, -0.25);
   const armR = mkLimb(shared.arm, armMat, 0.27, 1.42, -0.25);
 
+  g.rotation.order = 'YXZ';
   g.scale.setScalar(scale);
   g.userData = { root, legL, legR, armL, armR, baseScale: scale };
   return g;
@@ -69,7 +70,7 @@ export function setPose(person, s) {
   person.visible = !!s.vis;
   if (!s.vis) return;
   person.position.set(s.x, s.y || 0, s.z);
-  person.rotation.y = s.yaw || 0;
+  person.rotation.set(s.fx || 0, s.yaw || 0, s.fz || 0);
   person.scale.setScalar(baseScale);
   if (s.seat) {
     root.position.y = -0.42;
@@ -85,6 +86,9 @@ export function setPose(person, s) {
     armL.rotation.x = -sw * 0.8 + (s.armUp ? -2.4 : 0);
     armR.rotation.x = sw * 0.8;
   }
+  // 演出用の腕の振り（殴る動作など）。着席中も足せる
+  armR.rotation.x += s.ar || 0;
+  armL.rotation.x += s.al || 0;
 }
 
 /** キーフレーム列 [{t,x,z,y?,yaw?,seat?,hide?}] から時刻 t の姿勢を返す。 */
@@ -110,7 +114,7 @@ export function sampleKeyframes(kfs, t) {
   if (t < first.t) return { vis: false };
   if (t >= last.t) {
     if (last.hide) return { vis: false };
-    return { vis: true, x: last.x, y: last.y, z: last.z, yaw: last.yaw, seat: !!last.seat, moving: false, phase: 0 };
+    return { vis: true, x: last.x, y: last.y, z: last.z, yaw: last.yaw, seat: !!last.seat, moving: false, phase: 0, fx: last.fx || 0, fz: last.fz || 0, ar: last.ar || 0, al: last.al || 0 };
   }
   let i = 0;
   while (i < kfs.length - 2 && t >= kfs[i + 1].t) i++;
@@ -120,7 +124,8 @@ export function sampleKeyframes(kfs, t) {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const dy = b.y - a.y;
-  const moving = Math.hypot(dx, dz) > 0.05;
+  const moving = Math.hypot(dx, dz) > 0.05 && !a.still;
+  const ex = (k) => (a[k] || 0) + ((b[k] || 0) - (a[k] || 0)) * u;
   // keepYaw：車のように、向きをキーフレームの値から補間する（バックなどで進行方向と向きが違うため）
   const yaw = a.keepYaw ? a.yaw + (b.yaw - a.yaw) * u : moving ? Math.atan2(dx, dz) : a.yaw;
   return {
@@ -132,6 +137,10 @@ export function sampleKeyframes(kfs, t) {
     seat: !!a.seat && !moving,
     moving,
     phase: t * 7.5,
+    fx: ex('fx'),
+    fz: ex('fz'),
+    ar: ex('ar'),
+    al: ex('al'),
   };
 }
 

@@ -5,7 +5,7 @@ import { openApp } from './lib/browser.mjs';
 
 const outDir = path.resolve('dist/staff/checks');
 fs.mkdirSync(outDir, { recursive: true });
-const times = (process.env.TIMES || '0,3,7,11,15,18,21,23,27,29,31,33,36,38,44,50,55,60,64,68,71,75,79,83,86,89.9')
+const times = (process.env.TIMES || '0,3,7,11,15,18,21,23,27,29,31,33,36,38,44,50,55,60,64,68,71,75,79,83,86,89,92,95,98,100,104,107,111,114,118,123')
   .split(',')
   .map(Number);
 const { page, info, errors, close } = await openApp({ pagePath: '/staff.html', globalName: '__staff' });

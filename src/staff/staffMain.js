@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import cfg, { video, cameras as camCfg } from '../config.js';
 import { buildVenue } from '../venue.js';
-import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, makeFitSprite, makeLabelSprite } from '../props.js';
+import { buildChairs, buildPiano, buildDoubleBass, buildExhibits, buildSheets, buildPA, makeFitSprite, makeLabelSprite } from '../props.js';
 import { computeState as computeSetupState } from '../timeline.js';
-import { layout, T, staffVideo } from './staffConfig.js';
+import { layout, T, staffVideo, ban as banCfg } from './staffConfig.js';
 import { buildFoyer, setDoorOpen } from './foyer.js';
 import { buildSurroundings } from './surroundings.js';
 import { makePerson, setPose, makeCar } from './people.js';
@@ -29,7 +29,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1b2330);
 const camera = new THREE.PerspectiveCamera(camCfg.fov, 16 / 9, 0.1, 900);
 
-scene.add(new THREE.HemisphereLight(0xfff5e0, 0x6b5a45, 1.6));
+const hemi = new THREE.HemisphereLight(0xfff5e0, 0x6b5a45, 1.6);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 2.4);
 sun.position.set(40, 60, 30);
 sun.castShadow = true;
@@ -47,7 +48,11 @@ scene.add(sun, sun.target);
 sun.target.position.set(20, 0, 0);
 const fill = new THREE.DirectionalLight(0xdfe8ff, 0.9);
 fill.position.set(-30, 25, -20);
-scene.add(fill, new THREE.AmbientLight(0xffffff, 0.35));
+const amb = new THREE.AmbientLight(0xffffff, 0.35);
+scene.add(fill, amb);
+const LIGHT0 = { hemi: hemi.intensity, sun: sun.intensity, fill: fill.intensity, amb: amb.intensity, exposure: renderer.toneMappingExposure };
+const BG0 = new THREE.Color(0x1b2330);
+const BG_DARK = new THREE.Color(0x07090e);
 
 // ---------------------------------------------------------------- 会場
 const venue = buildVenue({ eastDoors: layout.gymDoors });
@@ -69,8 +74,21 @@ const exhibits = buildExhibits();
 exhibits.forEach((e) => scene.add(e.group));
 const sheets = buildSheets();
 scene.add(sheets.group);
+// この動画では、床の養生シートはすべて緑色（帯の見分けは不要）
 {
-  const st = computeSetupState(72, { rects: sheets.rects, chairCount: chairs.total });
+  const GREEN = 0x2f9a5a;
+  for (const b of sheets.bands) {
+    b.lower.material.color.setHex(GREEN);
+    b.upper.material.color.setHex(GREEN).multiplyScalar(0.8);
+    b.edge.material.color.setHex(GREEN).lerp(new THREE.Color(0xffffff), 0.55);
+    b.roll.material.color.setHex(GREEN);
+  }
+}
+// 音響（スピーカー・音響卓）の仮位置。設営動画と同じ
+const pa = buildPA();
+scene.add(pa.group);
+{
+  const st = computeSetupState(cfg.timeline.complete[0] + 1, { rects: sheets.rects, chairCount: chairs.total });
   st.sheets.forEach((s) => (s.showLabel = false));
   sheets.update(st.sheets);
   chairs.update(st.chairs);
@@ -108,7 +126,7 @@ for (const a of ACTORS) {
 }
 const labelSprites = {};
 for (const l of LABEL_DEFS) {
-  const s = makeFitSprite(l.text, { border: l.text.includes('NG') ? '#e05a5a' : '#f2c14e' });
+  const s = makeFitSprite(l.text, { border: l.border || (l.text.includes('NG') ? '#e05a5a' : '#f2c14e') });
   s.userData.screenFont = l.fs || 34;
   s.position.set(...l.pos);
   s.visible = false;
@@ -142,7 +160,18 @@ const cross = makeLabelSprite('×', '#ffffff', 0xd62828, { fontSize: 200 });
 cross.scale.set(4.6, 4.6, 1);
 cross.visible = false;
 scene.add(cross);
+// 大声の客への注意（演出）：吹き出し・「ボカッ！」・目を回す星
+const loudBubble = makeFitSprite('ワハハ！ペチャクチャ！！', { border: '#d62828', fontSize: 120 });
+loudBubble.visible = false;
+scene.add(loudBubble);
+const bam = makeFitSprite('ボカッ！', { border: '#ff6a00', fontSize: 150 });
+bam.visible = false;
+scene.add(bam);
+const starsSprite = makeFitSprite('★ ★ ★', { border: '#f2c14e', fontSize: 130 });
+starsSprite.visible = false;
+scene.add(starsSprite);
 const crossTexts = {
+  loud: makeFitSprite('会場内で大声はNG', { border: '#d62828' }),
   foyer: makeFitSprite('ホワイエ・玄関でも会話は必要最低限に', { border: '#d62828' }),
   hallStep: makeFitSprite('会場内も足音NG', { border: '#d62828' }),
   hallTalk: makeFitSprite('会場内も会話NG', { border: '#d62828' }),
@@ -227,7 +256,7 @@ function updateBan(st) {
   banEl.querySelectorAll('.card').forEach((c) => {
     const on = b[c.dataset.id];
     c.style.display = on ? 'block' : 'none';
-    const t0 = c.dataset.id === 'rec' ? 82.0 : b.t0;
+    const t0 = c.dataset.id === 'rec' ? banCfg.rec : b.t0;
     const u = Math.min(1, (st.t - t0) / 0.25);
     c.style.transform = `scale(${0.6 + 0.4 * u + 0.06 * Math.max(0, 1 - (st.t - t0) / 0.4)})`;
     c.style.opacity = String(Math.max(0, u));
@@ -284,12 +313,12 @@ function applyState(st, freeCam) {
   rippleMeshes.forEach((m) => (m.visible = false));
   st.ripples.slice(0, rippleMeshes.length).forEach((r, i) => {
     const m = rippleMeshes[i];
-    const rad = 0.5 + r.u * (r.kind === 'talk' ? 9 : 6.5);
+    const rad = 0.5 + r.u * (r.kind === 'loud' ? 11 : r.kind === 'talk' ? 9 : 6.5);
     m.visible = true;
     m.position.x = r.x;
     m.position.z = r.z;
     m.scale.setScalar(rad);
-    m.material.color.setHex(r.kind === 'talk' ? 0xf2a900 : 0x60a5fa);
+    m.material.color.setHex(r.kind === 'loud' ? 0xe02020 : r.kind === 'talk' ? 0xf2a900 : 0x60a5fa);
     m.material.opacity = 0.85 * (1 - r.u);
   });
   // 吹き出し・×
@@ -310,13 +339,36 @@ function applyState(st, freeCam) {
     const ct = crossTexts[st.cross.kind];
     ct.visible = true;
     ct.position.set(mid.x, 2.9, mid.z);
-    const k = 1 + 0.08 * Math.sin(st.t * 14);
-    cross.scale.set(4.6 * k, 4.6 * k, 1);
   }
+  // 大声の客：吹き出し・ボカッ・星
+  const lb = st.people.G_loud;
+  loudBubble.visible = st.gag.loudBubble && !!lb.vis;
+  if (loudBubble.visible) loudBubble.position.set(lb.x + 0.6, 3.1 + 0.08 * Math.sin(st.t * 12), lb.z - 0.4);
+  bam.visible = !!st.gag.bam;
+  if (st.gag.bam) {
+    const u = st.gag.bam.u;
+    bam.position.set(st.gag.bam.x, 2.6 + u * 0.5, st.gag.bam.z);
+    bam.userData.k = 0.7 + 0.5 * Math.min(1, u * 6) + 0.1 * Math.sin(u * 30);
+    bam.material.opacity = 1 - Math.max(0, u - 0.7) / 0.3;
+  }
+  starsSprite.visible = !!st.gag.stars;
+  if (st.gag.stars) starsSprite.position.set(st.gag.stars.x, 1.5 + 0.12 * Math.sin(st.t * 9), st.gag.stars.z);
+  // 会場の明るさ（公演中は少し暗く、途中入場・暗い会場の場面ではかなり暗く）
+  const k = st.dim;
+  hemi.intensity = LIGHT0.hemi * k;
+  sun.intensity = LIGHT0.sun * k;
+  fill.intensity = LIGHT0.fill * k;
+  amb.intensity = LIGHT0.amb * (0.5 + 0.5 * k);
+  scene.background.copy(BG_DARK).lerp(BG0, k);
   // 撮影・録音の禁止カード（画面に重ねる）
   updateBan(st);
   // 可視性の切り替え
-  const c = freeCam || st.camera;
+  let c = freeCam || st.camera;
+  if (!freeCam && st.gag.shake > 0) {
+    // 殴った瞬間のカメラの揺れ（決定的）
+    const a = st.gag.shake;
+    c = { ...c, pos: [c.pos[0] + Math.sin(st.t * 83) * 0.22 * a, c.pos[1] + Math.cos(st.t * 71) * 0.18 * a, c.pos[2] + Math.sin(st.t * 59) * 0.22 * a] };
+  }
   venue.south.visible = c.pos[2] <= cfg.venue.floor.zMax + 0.3;
   venue.east.visible = st.scene !== 'open' && st.scene !== 'quiet';
   surroundings.group.visible = true;
@@ -337,6 +389,14 @@ function applyState(st, freeCam) {
   for (const l of LABEL_DEFS) fitSprite(labelSprites[l.id], labelSprites[l.id].userData.screenFont);
   fitSprite(bubbleL, 56);
   fitSprite(bubbleR, 56);
+  fitSprite(loudBubble, 46);
+  if (bam.visible) fitSprite(bam, 62 * (bam.userData.k || 1));
+  if (cross.visible) {
+    // ×は画面上の大きさをそろえる（カメラが近いと大きくなりすぎるため）
+    const hC = ((250 * (1 + 0.08 * Math.sin(st.t * 14))) / 1080) * 2 * camPos.distanceTo(cross.position) * halfTan;
+    cross.scale.set(hC, hC, 1);
+  }
+  fitSprite(starsSprite, 70);
   Object.values(crossTexts).forEach((sp) => fitSprite(sp, 44));
   updateHud(st);
 }

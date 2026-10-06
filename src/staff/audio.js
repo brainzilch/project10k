@@ -200,18 +200,13 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
 
   // ---- 生演奏（公演中）：ゆっくりした原作のピアノ（9小節＋終止和音）----
   if (livePiano) {
+    // 生演奏（公演中）：原作のゆっくりしたピアノ。区間の長さに合わせて 8 小節をくり返し、最後の小節で終止する
     const lb = 0.9;
     const t0 = livePiano.from;
-    const roots = [48, 45, 41, 43, 48, 45, 41, 43, 48]; // C Am F G C Am F G C（左手）
-    const thirds = [4, 3, 4, 4, 4, 3, 4, 4, 4];
+    const loopRoots = [48, 45, 41, 43, 48, 45, 41, 43]; // C Am F G C Am F G（左手）
+    const loopThirds = [4, 3, 4, 4, 4, 3, 4, 4];
     const arp = [0, 7, 16, 7]; // 根音, 5度, 3度(上のオクターブ), 5度
-    for (let b = 0; b < 9; b++) {
-      for (let i = 0; i < 4; i++) {
-        const off = arp[i] === 16 ? 12 + thirds[b] : arp[i];
-        pianoNote(sfxBus, t0 + (b * 4 + i) * lb, roots[b] + off, lb * 1.6, 0.42, 0.55);
-      }
-    }
-    const bars = [
+    const melody = [
       [[0, 76, 2], [2, 79, 1], [3, 76, 1]],
       [[0, 81, 1.5], [1.5, 79, 0.5], [2, 76, 2]],
       [[0, 77, 2], [2, 81, 1], [3, 79, 1]],
@@ -220,13 +215,19 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
       [[0, 81, 2], [2, 76, 1], [3, 72, 1]],
       [[0, 77, 1.5], [1.5, 79, 0.5], [2, 81, 2]],
       [[0, 79, 1], [1, 74, 1], [2, 71, 2]],
-      [[0, 72, 4]],
     ];
-    bars.forEach((notes, bi) => {
-      for (const [b, m, d] of notes) pianoNote(sfxBus, t0 + (bi * 4 + b) * lb, m, d * lb, 0.62, 0.6);
-    });
-    // 終止和音
-    for (const m of [48, 60, 64, 67, 72]) pianoNote(sfxBus, t0 + 36 * lb, m, 1.2, 0.5, 0.7);
+    const nBars = Math.max(8, Math.floor((livePiano.to - livePiano.from - 3.5) / (4 * lb)));
+    for (let b = 0; b < nBars; b++) {
+      const bi = b % 8;
+      for (let i = 0; i < 4; i++) {
+        const off = arp[i] === 16 ? 12 + loopThirds[bi] : arp[i];
+        pianoNote(sfxBus, t0 + (b * 4 + i) * lb, loopRoots[bi] + off, lb * 1.6, 0.42, 0.55);
+      }
+      for (const [bt, m, d] of melody[bi]) pianoNote(sfxBus, t0 + (b * 4 + bt) * lb, m, d * lb, 0.62, 0.6);
+    }
+    // 最後の小節：C の和音で終止
+    for (const m of [48, 60, 64, 67, 72]) pianoNote(sfxBus, t0 + nBars * 4 * lb, m, 1.8, 0.5, 0.7);
+    pianoNote(sfxBus, t0 + nBars * 4 * lb, 72, 3.0, 0.6, 0.7);
   }
 
   // ---- 効果音 ----
@@ -407,7 +408,7 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
         l.connect(lg);
         lg.connect(am.gain);
         const out = ctx.createGain();
-        out.gain.value = 0.32;
+        out.gain.value = 0.32 * (c.gain || 1);
         const p = ctx.createStereoPanner();
         p.pan.value = pan;
         n.connect(b1);
@@ -585,6 +586,104 @@ export async function renderStaffAudio({ duration, cues, livePiano, bgmPlan }) {
       n.connect(bp);
       bp.connect(ng);
       ng.connect(p);
+    },
+    loudTalk(t, c) {
+      // 大声で話す2人：普通の会話より大きく、重なる
+      const dur = c.dur || 5;
+      fx.murmur(t, { dur, gain: 2.4 });
+      fx.murmur(t + 0.35, { dur: dur - 0.35, gain: 1.8 });
+      for (let k = 0; k < Math.floor(dur / 1.1); k++) fx.laugh(t + 0.5 + k * 1.1 + rnd() * 0.25);
+    },
+    laugh(t) {
+      // 「ハハハ」風の短い声の連打
+      for (let i = 0; i < 4; i++) {
+        const x = t + i * 0.13;
+        const o = osc('sawtooth', 220 + i * 18 + rnd() * 10, x, 0.12);
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 900;
+        bp.Q.value = 2.5;
+        const g = ctx.createGain();
+        env(g, x, 0.01, 0.1, 0.07);
+        o.connect(bp);
+        bp.connect(g);
+        g.connect(sfxBus);
+        send(g, 0.15);
+      }
+    },
+    punch(t) {
+      // 殴る音：鋭い打撃（ガツン）＋ 重い低音の衝撃
+      const o = osc('sine', 170, t, 0.5);
+      o.frequency.exponentialRampToValueAtTime(48, t + 0.22);
+      const g = ctx.createGain();
+      env(g, t, 0.002, 0.75, 0.3);
+      o.connect(g);
+      g.connect(sfxBus);
+      const n = noise(t, 0.2);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1100;
+      bp.Q.value = 0.8;
+      const ng = ctx.createGain();
+      env(ng, t, 0.001, 0.6, 0.12);
+      n.connect(bp);
+      bp.connect(ng);
+      ng.connect(sfxBus);
+      const w = osc('square', 520, t, 0.1);
+      w.frequency.exponentialRampToValueAtTime(130, t + 0.09);
+      const wg = ctx.createGain();
+      env(wg, t, 0.001, 0.22, 0.07);
+      w.connect(wg);
+      wg.connect(sfxBus);
+      send(g, 0.25);
+    },
+    tumble(t) {
+      // 椅子から転げ落ちる音：椅子のガチャン → 体がドサッ → バウンド → ゴロッ
+      [[0.0, 2200, 0.5], [0.07, 1700, 0.4], [0.16, 2600, 0.35], [0.29, 1400, 0.3], [0.41, 2000, 0.22]].forEach(([dt, f, a]) => {
+        const x = t + dt;
+        for (const [mul, am] of [[1, 1], [1.5, 0.6], [2.3, 0.35]]) {
+          const o = osc('triangle', f * mul, x, 0.2);
+          const og = ctx.createGain();
+          env(og, x, 0.001, 0.2 * a * am, 0.09);
+          o.connect(og);
+          og.connect(sfxBus);
+        }
+        const n = noise(x, 0.08);
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 2500;
+        const ng = ctx.createGain();
+        env(ng, x, 0.001, 0.25 * a, 0.05);
+        n.connect(hp);
+        hp.connect(ng);
+        ng.connect(sfxBus);
+      });
+      [[0.5, 0.7], [0.66, 0.4], [0.82, 0.22]].forEach(([dt, a]) => fx.thud(t + dt, { gain: a * 1.4 }));
+      const n = noise(t + 0.55, 0.5);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 700;
+      const sg = ctx.createGain();
+      env(sg, t + 0.55, 0.05, 0.14, 0.4);
+      n.connect(lp);
+      lp.connect(sg);
+      sg.connect(sfxBus);
+      send(sg, 0.2);
+    },
+    dizzy(t) {
+      // 目を回す：音程が下がっていくスライドホイッスル
+      const o = osc('sine', 1500, t, 1.2);
+      o.frequency.exponentialRampToValueAtTime(280, t + 1.0);
+      const lfo = osc('sine', 9, t, 1.2);
+      const lg = ctx.createGain();
+      lg.gain.value = 40;
+      lfo.connect(lg);
+      lg.connect(o.frequency);
+      const g = ctx.createGain();
+      env(g, t, 0.02, 0.2, 0.95);
+      o.connect(g);
+      g.connect(sfxBus);
+      send(g, 0.3);
     },
     success(t) {
       // 完了のきらきら

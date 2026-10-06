@@ -8,7 +8,7 @@
   <body>
     <script type="module">
       import { renderStaffAudio } from './src/staff/audio.js';
-      import { cues, livePiano, staffVideo, T, late } from './src/staff/staffConfig.js';
+      import { cues, livePiano, staffVideo, T, late, dark, quietParts } from './src/staff/staffConfig.js';
       window.__audio = {
         ready: true,
         async render(opts = {}) {
@@ -22,13 +22,13 @@
               { from: T.reception[0], to: T.open[0], vol: 1, arp: true, lead: true, drums: true },
               { from: T.open[0], to: T.parking[0], vol: 1, arp: true, lead: true, drums: true },
               { from: T.parking[0], to: T.quiet[0], vol: 0.9, arp: true, lead: false, drums: true },
-              { from: late.end + 2.8, to: T.outro[0], vol: 0.6, arp: true, lead: false, drums: false },
+              { from: dark.end + 0.4, to: T.outro[0], vol: 0.6, arp: true, lead: false, drums: false },
               { from: T.outro[0], to: staffVideo.duration, vol: 0.9, arp: true, lead: true, drums: true },
             ],
             bus: [
               v(0, 0.0001), v(0.6, 0.55), v(T.intro[1] - 0.3, 0.55), v(T.intro[1] + 0.5, 0.6),
               v(T.parking[1] - 1.2, 0.6), v(T.quiet[0] - 0.2, 0.0001), v(T.quiet[0] + 0.1, 0.0001),
-              v(late.end, 0.0001), v(late.end + 3.2, 0.0001), v(late.end + 3.6, 0.5), v(T.outro[0] - 0.4, 0.5), v(T.outro[0] + 1, 0.62),
+              v(dark.end, 0.0001), v(dark.end + 0.2, 0.0001), v(dark.end + 0.6, 0.5), v(T.outro[0] - 0.4, 0.5), v(T.outro[0] + 1, 0.62),
               v(staffVideo.duration - 1.5, 0.62), v(staffVideo.duration - 0.05, 0.0001),
             ],
           };
